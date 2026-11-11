@@ -1,0 +1,587 @@
+{
+  "version": "0.0.201",
+  "sha256": "95dfa4d4822680cb88bad5c82372ea988cacd49c850245128535eeacb73d84e5",
+  "source": "C:\\Users\\wtsco\\AppData\\Local/Programs/@codebufffreebuff-desktop/resources/orchestrator/orchestrator.js",
+  "routes": [
+    {
+      "method": "POST",
+      "pattern": "/api/appearance/wallpapers",
+      "line": 216254,
+      "handler": "(request3) => exports_Effect.promise(() => upload(request3, directory))"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/appearance/wallpapers/:filename",
+      "line": 216255,
+      "handler": "(_request, url2, params) => exports_Effect.promise(() => download2(url2, params.filename, directory))"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/appearance/usage",
+      "line": 216256,
+      "handler": "() => exports_Effect.gen(function* () {\n        let app = yield* App, counts = app.appearanceUsage ? yield* exports_Effect.promise(() => app.appearanceUsage.usage()) : {};\n        return json4({ counts });\n      })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/auth/status",
+      "line": 216270,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App, auth2 = app.auth();\n      if (auth2.token)\n        app.refreshAuth().catch(() => {});\n      if (auth2.token && app.sessions.snapshot().accessTier === \"limited\")\n        app.sessions.refreshTier().catch(() => {});\n      return json4({ authed: auth2.token != null, user: auth2.user, login: app.login.state(), sessionRefunds: app.sessions.refundStatus() });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/auth/login/start",
+      "line": 216282,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body(req).pipe(exports_Effect.orElseSucceed(() => ({}))), surface = asLoginSurface(value2.surface), requested = desktopFunnelPropertiesSchema.shape.attempt_id.safeParse(value2.attemptId), requestedId = requested.success && requested.data ? requested.data : crypto.randomUUID(), pending3 = app.login.start(surface, requestedId), state = app.login.state?.(), attemptId = state?.phase === \"starting\" || state?.phase === \"waiting\" ? state.attemptId : requestedId, loginSurface = state?.phase === \"starting\" || state?.phase === \"waiting\" ? state.surface ?? surface : surface, props = { surface: loginSurface, login_surface: loginSurface, attempt_id: attemptId };\n      try {\n        app.analytics.track(\"desktop.login_started\", props);\n      } catch {}\n      trackDesktopFunnel(app.analytics, \"login\", \"started\", {\n        attempt_id: attemptId,\n        flow_id: attemptId,\n        login_surface: loginSurface,\n        ...state?.phase === \"waiting\" ? { reason: \"reopen\" } : {}\n      });\n      let result = yield* exports_Effect.promise(() => pending3);\n      return result.ok ? json4({ url: result.launchUrl, attemptId: result.attemptId ?? attemptId }) : json4({ error: result.error ?? \"Could not start sign-in.\" }, 502);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/auth/login/cancel",
+      "line": 216300,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body(req);\n      if (typeof value2.attemptId !== \"string\")\n        return json4({ error: \"attemptId required\" }, 400);\n      let state = app.login.state?.();\n      if (app.login.cancel(value2.attemptId), (state?.phase === \"starting\" || state?.phase === \"waiting\") && state.attemptId === value2.attemptId)\n        trackDesktopFunnel(app.analytics, \"login\", \"cancelled\", {\n          attempt_id: state.attemptId,\n          flow_id: state.attemptId,\n          reason: \"cancel\"\n        });\n      return json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/auth/logout",
+      "line": 216317,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(() => app.logout()), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/auth/login/launch/:token",
+      "line": 216325,
+      "handler": "(req, _url2, params) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      if (!isAllowedLoopbackHost(req.headers.get(\"host\")))\n        return new Response(\"forbidden\", { status: 403 });\n      let target4 = app.login.resolveLaunchToken(params.token), state = app.login.state?.();\n      if (target4 && state?.phase === \"waiting\")\n        trackDesktopFunnel(app.analytics, \"browser\", \"opened\", {\n          attempt_id: state.attemptId,\n          flow_id: state.attemptId\n        });\n      return target4 ? new Response(null, { status: 302, headers: { location: target4, \"referrer-policy\": \"no-referrer\" } }) : new Response(\"This sign-in link has expired. Start again from the app.\", { status: 410 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/bootstrap",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input) => {\n      let { accountId, token } = await access3(app);\n      return registered.set(app, { accountId, token, launchId: typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId) ? input.launchId : void 0, panelThreads: /* @__PURE__ */ new Map, localPanelId: randomUUID31(), localPanels: /* @__PURE__ */ new Map, disconnectedPaths: /* @__PURE__ */ new Set, refusedPaths: /* @__PURE__ */ new Map, policyCheckedAt: Date.now() }), { url: `${authOrigin}/`, accountId, sessionToken: token };\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/project-setup",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input) => {\n      let current = await access3(app, input.accountId), grant = registered.get(app);\n      if (!grant || grant.accountId !== current.accountId || grant.token !== current.token || input.accountId !== current.accountId)\n        throw new HostedWorkspaceError(403, \"Open the hosted workspace first\");\n      return current.assertAccount(), app.stateFile.writeUiPrefs({ projectSetupCompleted: !0 }), { completed: !0 };\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/native-agents",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input) => {\n      let current = await access3(app, input.accountId), grant = registered.get(app);\n      if (!grant || grant.accountId !== current.accountId || grant.token !== current.token || input.accountId !== current.accountId)\n        throw new HostedWorkspaceError(403, \"Open the hosted workspace first\");\n      if (Object.keys(input).some((key2) => ![\"accountId\", \"operation\", \"harness\"].includes(key2)) || ![\"status\", \"recheck\", \"install\"].includes(String(input.operation)) || input.harness !== void 0 && input.harness !== \"claude-code\" && input.harness !== \"codex\" || input.operation === \"install\" && !input.harness)\n        throw new HostedWorkspaceError(400, \"Invalid agent request\");\n      let harness2 = input.harness;\n      if (input.operation === \"install\") {\n        let result = await (harness2 === \"claude-code\" ? app.installClaudeRuntime() : app.installCodexRuntime());\n        if (current.assertAccount(), !result.ok)\n          throw Error(\"Couldn\\u2019t install. Try again.\");\n      }\n      if (input.operation !== \"status\")\n        for (let id4 of harness2 ? [harness2] : [\"claude-code\", \"codex\"])\n          app.recheckLocalCli(id4);\n      return current.assertAccount(), { agents: app.nativeAgents?.() ?? [] };\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/appearance",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input) => {\n      let current = await access3(app, input.accountId), grant = registered.get(app);\n      if (!grant || grant.accountId !== current.accountId || grant.token !== current.token || input.accountId !== current.accountId)\n        throw new HostedWorkspaceError(403, \"Open the hosted workspace first\");\n      let result = await hostedAppearance(app.stateFile, current.accountId, input.source);\n      return current.assertAccount(), result;\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/diagnose",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input) => {\n      let current = identity4(app, input.accountId), grant = registered.get(app);\n      if (!grant || grant.accountId !== current.accountId || grant.token !== current.token || input.accountId !== current.accountId)\n        throw new HostedWorkspaceError(403, \"Open the hosted workspace first\");\n      if (!app.diagnose)\n        throw new HostedWorkspaceError(404, \"Diagnostics are unavailable\");\n      let flag = (value2) => value2 === void 0 || typeof value2 === \"boolean\", dir = (value2) => value2 === void 0 || typeof value2 === \"string\" && value2.length <= 4096 && isAbsolute17(value2), native = input.native ?? {};\n      if (Object.keys(input).some((key2) => ![\"accountId\", \"operation\", \"options\", \"native\", \"kind\", \"ref\", \"undoRef\"].includes(key2)) || ![\"scan\", \"repair\", \"undo\"].includes(String(input.operation)) || typeof native !== \"object\" || Object.keys(native).some((key2) => ![\"userData\", \"logs\", \"crashDumps\"].includes(key2) || !dir(native[key2])))\n        throw new HostedWorkspaceError(400, \"Invalid diagnostics request\");\n      if (input.operation === \"scan\") {\n        let options3 = input.options ?? {};\n        if (typeof options3 !== \"object\" || Object.keys(options3).some((key2) => ![\"deep\", \"includePaths\", \"includeChatTitles\"].includes(key2) || !flag(options3[key2])))\n          throw new HostedWorkspaceError(400, \"Invalid diagnostics request\");\n        let report = await app.diagnose.scan(options3, native);\n        return current.assertAccount(), report;\n      }\n      if (input.operation === \"undo\") {\n        if (typeof input.undoRef !== \"string\" || !/^[a-f0-9-]{36}$/.test(input.undoRef))\n          throw new HostedWorkspaceError(400, \"Invalid diagnostics request\");\n        return app.diagnose.undo(input.undoRef);\n      }\n      if (![\"trust-git-folder\", \"relink-worktree\"].includes(String(input.kind)) || typeof input.ref !== \"string\" || !/^[a-f0-9-]{36}$/.test(input.ref))\n        throw new HostedWorkspaceError(400, \"Invalid diagnostics request\");\n      return app.diagnose.repair({ kind: input.kind, ref: input.ref });\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/profile-notice",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input) => {\n      let current = identity4(app, input.accountId), grant = registered.get(app);\n      if (!grant || grant.accountId !== current.accountId || grant.token !== current.token || input.accountId !== current.accountId)\n        throw new HostedWorkspaceError(403, \"Open the hosted workspace first\");\n      return { notice: await app.diagnose?.profileNotice() ?? null };\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/activity",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input) => {\n      let current = identity4(app, input.accountId), grant = registered.get(app);\n      if (!grant || grant.accountId !== current.accountId || grant.token !== current.token || input.accountId !== current.accountId)\n        throw new HostedWorkspaceError(403, \"Open the hosted workspace first\");\n      let turns = app.registry.all().some((engine) => engine.busyThreadIds().length);\n      return {\n        busy: Boolean(app.terminals.liveSessionCount() || app.deviceExecution?.busy?.() || app.elevation.pending().length || turns),\n        working: Boolean(app.deviceExecution?.working?.() || turns)\n      };\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/elevations",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input) => {\n      let current = identity4(app, input.accountId), grant = registered.get(app);\n      if (!grant || grant.accountId !== current.accountId || grant.token !== current.token || input.accountId !== current.accountId)\n        throw new HostedWorkspaceError(403, \"Open the hosted workspace first\");\n      if (input.requestId !== void 0)\n        await access3(app, current.accountId);\n      else\n        await cachedPolicy(app, grant, current.accountId);\n      if (current.assertAccount(), registered.get(app) !== grant)\n        throw new HostedWorkspaceError(409, \"Hosted Desktop session changed\");\n      let owned = app.elevation.pending().filter((request5) => app.registry.all().some((engine) => {\n        let thread = engine.getThread(request5.threadId);\n        return thread?.executionTarget === \"cloud\" && thread.cloudAccountId === current.accountId && thread.cloudApiHost === apiOrigin;\n      }));\n      if (input.requestId !== void 0) {\n        if (!cloudId(input.requestId) || typeof input.approved !== \"boolean\")\n          throw new HostedWorkspaceError(400, \"Invalid administrator approval\");\n        if (!owned.some((request5) => request5.id === input.requestId))\n          throw new HostedWorkspaceError(409, \"This administrator request is no longer available\");\n        if (!app.elevation.decide(input.requestId, input.approved))\n          throw new HostedWorkspaceError(409, \"This administrator request is no longer available\");\n        return { ok: !0 };\n      }\n      return owned;\n    }"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/hosted-workspace/status",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app) => {\n      let current = await statusAccess(app);\n      return status(app, current.accountId);\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/status",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input) => {\n      if (typeof input.accountId !== \"string\" || !cloudId(input.projectId))\n        throw new HostedWorkspaceError(400, \"Choose a project from the workspace\");\n      let current = await statusAccess(app, input.accountId), trigger = input.trigger;\n      if (trigger !== void 0 && (typeof trigger !== \"string\" || ![\"startup\", \"project-selection\", \"automatic-retry\", \"manual-retry\"].includes(trigger)))\n        throw new HostedWorkspaceError(400, \"Invalid status trigger\");\n      return await connectKnownProject(app, current, input.projectId, trigger), current.assertAccount(), status(app, current.accountId);\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/local-conversations",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input, signal) => {\n      let current = identity4(app, input.accountId), grant = registered.get(app);\n      if (!grant || grant.accountId !== current.accountId || grant.token !== current.token || input.accountId !== current.accountId)\n        throw new HostedWorkspaceError(403, \"Open the hosted workspace first\");\n      if (![\"read\", \"projects\", \"threads\", \"search\"].includes(String(input.operation)))\n        grant.policyCheck ??= access3(app, current.accountId).finally(() => {\n          grant.policyCheck = void 0;\n        }), await grant.policyCheck;\n      else\n        await cachedPolicy(app, grant, current.accountId);\n      let assertCurrent = () => {\n        if (signal.throwIfAborted(), current.assertAccount(), registered.get(app) !== grant)\n          throw new HostedWorkspaceError(409, \"Hosted Desktop session changed\");\n      };\n      if (assertCurrent(), input.operation === \"authorize\")\n        return grant.localConversations ??= new HostedLocalConversations(app, current.accountId, apiOrigin, void 0, (path24) => {\n          if (grant.disconnectedPaths.has(path24))\n            throw new LocalChatMigrationError(\"This folder is disconnected. Choose Open local folder, then retry your message.\", \"folder-disconnected\");\n        }), { ok: !0 };\n      if (!grant.localConversations)\n        throw new HostedWorkspaceError(403, \"Open the signed-in Desktop workspace first\");\n      let { accountId: _accountId, ...request5 } = input;\n      return grant.localConversations.request(request5, assertCurrent, {\n        assertCurrent: () => {\n          if (current.assertAccount(), registered.get(app) !== grant)\n            throw new HostedWorkspaceError(409, \"Hosted Desktop session changed\");\n        },\n        authorize: () => access3(app, current.accountId)\n      });\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/project-branches",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input, signal) => {\n      let current = await access3(app, input.accountId), grant = registered.get(app);\n      if (!grant || grant.accountId !== current.accountId || grant.token !== current.token)\n        throw new HostedWorkspaceError(403, \"Open the hosted workspace first\");\n      return hostedProjectBranches(app, input, () => {\n        if (signal.throwIfAborted(), current.assertAccount(), registered.get(app) !== grant)\n          throw Error(\"Desktop session changed\");\n      });\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/runtime",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input, signal) => {\n      let current = await access3(app, input.accountId), grant = registered.get(app);\n      if (!grant || grant.accountId !== current.accountId || grant.token !== current.token)\n        throw new HostedWorkspaceError(403, \"Open the hosted workspace first\");\n      return hostedRuntime(app, input, () => {\n        if (signal.throwIfAborted(), current.assertAccount(), registered.get(app) !== grant)\n          throw Error(\"Desktop session changed\");\n      }, fetcher);\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/release-chat",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input) => {\n      if (!cloudId(input.projectId) || !cloudId(input.threadId))\n        throw new HostedWorkspaceError(400, \"Invalid local chat scope\");\n      let current = await access3(app, input.accountId), grant = registered.get(app);\n      if (!grant || grant.accountId !== current.accountId || grant.token !== current.token)\n        throw new HostedWorkspaceError(403, \"Open the hosted workspace first\");\n      return app.deviceExecution?.releaseChat(input.projectId, input.threadId), { ok: !0 };\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/prepare-chat",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input, signal) => {\n      let scope7 = await panelEnrollment(app, input, signal);\n      return await app.deviceExecution.prepareChat({ projectId: scope7.projectId, threadId: scope7.threadId }, scope7.connection.sessionId, signal), scope7.assertCurrent(), { projectId: scope7.projectId, threadId: scope7.threadId };\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/terminal",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input, signal) => {\n      if (![\"attach\", \"read\", \"input\", \"resize\", \"detach\", \"close\"].includes(String(input.operation)))\n        throw new HostedWorkspaceError(400, \"Unsupported terminal operation\");\n      let refreshPolicy = input.operation === \"read\" || input.operation === \"detach\" ? !1 : input.operation === \"input\" || input.operation === \"resize\" ? \"cached\" : !0, scope7 = await panelThread(app, input, signal, { refreshPolicy }), cwd = scope7.cwd ?? scope7.context.engine.root;\n      if (input.source === \"local-history\" && input.operation === \"attach\") {\n        let { engine, id: id4 } = scope7.context, liveCwd = app.terminals.snapshots(engine.terminalScope, id4).find((terminal2) => terminal2.terminalId === input.sessionId)?.cwd, prepared = liveCwd ?? await engine.terminalCwd(id4, { reopen: !0 });\n        if (scope7.assertCurrent(), !prepared || !engine.canAttachTerminal(id4, !!liveCwd))\n          throw new HostedWorkspaceError(409, \"Local workspace is not available\");\n        cwd = prepared;\n      }\n      let result = await requestHostedTerminal(app.terminals, {\n        accountId: scope7.accountId,\n        projectId: scope7.projectId,\n        threadId: scope7.threadId,\n        source: input.source,\n        bindingId: scope7.bindingId,\n        sessionId: scope7.sessionId,\n        cwd,\n        terminalScope: scope7.context.engine.terminalScope,\n        assertCurrent: scope7.assertConnected\n      }, input, signal);\n      try {\n        scope7.assertCurrent();\n      } catch (error46) {\n        if (result.viewerId)\n          detachHostedTerminalViewer(app.terminals, result.viewerId);\n        throw error46;\n      }\n      return result;\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/media",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input, signal) => {\n      if (input.range !== void 0 && (typeof input.range !== \"string\" || input.range.length > 64))\n        throw new HostedWorkspaceError(400, \"Invalid media range\");\n      let scope7 = await panelThread(app, input, signal, { refreshPolicy: \"cached\" });\n      return hostedMediaResponse(scope7, input.path, input.range, signal);\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/files",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input, signal) => {\n      let scope7 = await panelThread(app, input, signal, { refreshPolicy: [\"save\", \"create\", \"upload\"].includes(String(input.operation)) ? !0 : \"cached\" });\n      return requestHostedFiles(scope7, input);\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/git",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input, signal) => {\n      let scope7 = await panelThread(app, input, signal, { refreshPolicy: \"cached\" });\n      return requestHostedGit(scope7, input);\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/sites-context",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input, signal) => {\n      if (input.source !== void 0)\n        throw new HostedWorkspaceError(400, \"This action requires a cloud-managed chat\");\n      return hostedSitesContext(app, await panelThread(app, input, signal, { refreshPolicy: \"cached\" }), input);\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/sites-publish",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input, signal) => {\n      if (input.source !== void 0)\n        throw new HostedWorkspaceError(400, \"This action requires a cloud-managed chat\");\n      return hostedSitesPublish(app, await panelThread(app, input, signal), input, signal);\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/browser",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input, signal) => {\n      let current = identity4(app, input.accountId), grant = registered.get(app);\n      if (!grant || grant.accountId !== current.accountId || grant.token !== current.token)\n        throw new HostedWorkspaceError(403, \"Open the hosted workspace first\");\n      if (input.accountId !== current.accountId)\n        throw new HostedWorkspaceError(409, \"Desktop account changed\");\n      if (input.projectId === void 0 && input.threadId === void 0 && input.action === void 0)\n        return browserSnapshot(app, current.accountId);\n      let parsed = browserActionSchema.safeParse(input.action);\n      if (!parsed.success || ![\"open\", \"close\", \"select\", \"navigate\", \"report\", \"native\", \"status\", \"configure\", \"profile-add\", \"profile-delete\", \"save-defaults\"].includes(parsed.data.action) || parsed.data.action === \"native\" && ![\"stop\", \"hardReload\", \"devtools\", \"clearCookies\", \"clearCache\", \"popout\", \"recordingStart\", \"recordingStop\", \"recordingStatus\"].includes(parsed.data.command))\n        throw new HostedWorkspaceError(400, \"Unsupported hosted browser action\");\n      let action = parsed.data, scope7 = await panelThread(app, input, signal, { refreshPolicy: action.action === \"report\" || action.action === \"native\" && action.command === \"recordingStatus\" ? !1 : !0, report: action.action === \"report\" }), { context: context5 } = scope7;\n      if (action.action === \"profile-delete\" && !context5.engine.browsers.snapshot().profiles.some((profile) => profile.id === action.profileId))\n        throw new HostedWorkspaceError(400, \"Choose a browser profile\");\n      return await context5.engine.browsers.action(context5.id, action, signal), scope7.assertCurrent(), browserSnapshot(app, current.accountId);\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/create-local-project",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input) => {\n      if (!registered.has(app))\n        throw new HostedWorkspaceError(403, \"Open the hosted workspace first\");\n      if (typeof input.accountId !== \"string\")\n        throw new HostedWorkspaceError(400, \"Choose a Desktop account\");\n      let { accountId, assertAccount } = await access3(app, input.accountId), projectPath = await createHostedLocalProject(app, input, accountId, apiOrigin, assertAccount);\n      return connectProject(app, projectPath, accountId, assertAccount, !0);\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/enroll",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input) => {\n      if (!registered.has(app))\n        throw new HostedWorkspaceError(403, \"Open the hosted workspace first\");\n      if (typeof input.accountId !== \"string\" || typeof input.projectPath !== \"string\")\n        throw new HostedWorkspaceError(400, \"Choose a project in the native folder picker\");\n      let { accountId, assertAccount } = await access3(app, input.accountId);\n      if (input.remember !== void 0 && typeof input.remember !== \"boolean\")\n        throw new HostedWorkspaceError(400, \"Invalid folder approval\");\n      return connectProject(app, input.projectPath, accountId, assertAccount, !0);\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/logout",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input) => {\n      let auth2 = app.auth();\n      if (!auth2.user)\n        return { ok: !0 };\n      let grant = registered.get(app);\n      if (!grant || input.accountId !== auth2.user.id || grant.accountId !== auth2.user.id || grant.token !== auth2.token)\n        throw new HostedWorkspaceError(409, \"Desktop account changed\");\n      return await app.logout(), registered.delete(app), { ok: !0 };\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/forget-local-project",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input) => {\n      if (typeof input.accountId !== \"string\" || typeof input.projectId !== \"string\")\n        throw new HostedWorkspaceError(400, \"Choose a local project\");\n      let { accountId, assertAccount } = await access3(app, input.accountId);\n      return forgetHostedLocalProject(app, input.projectId, accountId, apiOrigin, assertAccount);\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/hosted-workspace/disconnect",
+      "line": 218725,
+      "handler": "(request5) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(async () => {\n        if (request5.headers.has(\"origin\") || request5.headers.has(\"sec-fetch-site\"))\n          return privateJson({ error: \"Use the native Desktop controls\" }, 403);\n        if (new URL(request5.url).search)\n          return privateJson({ error: \"Unexpected query\" }, 400);\n        let started = Date.now(), launchId2 = registered.get(app)?.launchId;\n        try {\n          let input = method === \"GET\" ? {} : await request5.json();\n          if (!input || typeof input !== \"object\" || Array.isArray(input))\n            return privateJson({ error: \"Invalid request\" }, 400);\n          if (suffix === \"bootstrap\" && typeof input.launchId === \"string\" && /^[a-f0-9-]{36}$/.test(input.launchId))\n            launchId2 = input.launchId;\n          let result = await run2(app, input, request5.signal);\n          if (suffix === \"bootstrap\")\n            workspaceDiagnostic(app, suffix, \"ready\", void 0, Date.now() - started, launchId2);\n          return result instanceof Response ? result : privateJson(result);\n        } catch (error46) {\n          return workspaceDiagnostic(app, suffix, \"failed\", error46, Date.now() - started, launchId2), privateJson({ error: error46 instanceof HostedWorkspaceError || error46 instanceof Error ? error46.message : \"Could not connect the hosted workspace\" }, error46 instanceof HostedWorkspaceError ? error46.status : 400);\n        }\n      });\n    })",
+      "boundHandler": "async (app, input) => {\n      if (!app.auth().user?.id || input.accountId !== app.auth().user?.id)\n        throw new HostedWorkspaceError(409, \"Desktop account changed\");\n      if (input.sessionId !== void 0 && !deviceIdSchema.safeParse(input.sessionId).success)\n        throw new HostedWorkspaceError(400, \"Invalid device session\");\n      let grant = registered.get(app);\n      for (let connection of app.deviceExecution?.status().connections ?? [])\n        if (connection.projectPath && (!input.sessionId || connection.sessionId === input.sessionId))\n          grant?.disconnectedPaths.add(connection.projectPath);\n      return app.deviceReconnect?.revokeSession(input.sessionId), app.deviceExecution?.stop(input.sessionId), { ok: !0 };\n    }"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/app/restarting-for-update",
+      "line": 219283,
+      "handler": "() => exports_Effect.gen(function* () {\n      return (yield* App).sessions.holdForRestart(), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/diagnostics/renderer-error",
+      "line": 219290,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body(req), report = normalizeRendererError(value2);\n      if (!report)\n        return json4({ error: \"invalid report\" }, 400);\n      if (isNonFaultRendererError(report))\n        return json4({ ok: !0 }, 202);\n      return yield* exports_Effect.promise(() => shipRendererError(app.logShipper, report, app.stateFile.analyticsId())), json4({ ok: !0 }, 202);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/diagnostics/renderer-health",
+      "line": 219302,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, report = normalizeRendererHealth(yield* body(req));\n      if (!report)\n        return json4({ error: \"invalid report\" }, 400);\n      return app.logShipper.ship({\n        level: \"info\",\n        event: \"desktop.renderer_health\",\n        message: \"renderer memory sample\",\n        client_session_id: app.stateFile.analyticsId(),\n        data: {\n          ...report,\n          surface: \"desktop\",\n          platform: process.platform,\n          arch: process.arch,\n          version: process.env.FREEBUFF_APP_VERSION ?? null\n        }\n      }), json4({ ok: !0 }, 202);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/diagnostics/renderer-boot",
+      "line": 219324,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, report = normalizeRendererBoot(yield* body(req));\n      if (!report)\n        return json4({ error: \"invalid report\" }, 400);\n      return shipRendererBoot(app.logShipper, report, app.stateFile.analyticsId()), json4({ ok: !0 }, 202);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/diagnostics/sign-in-return",
+      "line": 219334,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, { returnedMs } = yield* body(req);\n      if (typeof returnedMs !== \"number\" || !Number.isFinite(returnedMs) || returnedMs < 0)\n        return json4({ error: \"invalid report\" }, 400);\n      return app.logShipper.ship({\n        level: \"info\",\n        event: \"desktop.sign_in_returned\",\n        message: \"main window in front after sign-in\",\n        client_session_id: app.stateFile.analyticsId(),\n        data: {\n          returnedMs: Math.round(returnedMs),\n          surface: \"desktop\",\n          platform: process.platform,\n          version: process.env.FREEBUFF_APP_VERSION ?? null\n        }\n      }), json4({ ok: !0 }, 202);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/diagnostics/toast",
+      "line": 219355,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body(req), report = normalizeToastError(value2);\n      if (!report)\n        return json4({ error: \"invalid report\" }, 400);\n      return yield* exports_Effect.promise(() => shipToastError(app.logShipper, report, app.stateFile.analyticsId())), json4({ ok: !0 }, 202);\n    })"
+    }
+  ],
+  "bridge": [
+    {
+      "name": "platform",
+      "line": 11,
+      "implementation": "platform: process.platform"
+    },
+    {
+      "name": "openHostedWorkspace",
+      "line": 12,
+      "implementation": "openHostedWorkspace: () => ipcRenderer.invoke('hosted-workspace:open')"
+    },
+    {
+      "name": "browserData",
+      "line": 13,
+      "implementation": "browserData: (request) => ipcRenderer.invoke('browser:data', request)"
+    },
+    {
+      "name": "prepareBrowserProfile",
+      "line": 14,
+      "implementation": "prepareBrowserProfile: (partition) => ipcRenderer.invoke('browser:prepare-profile', partition)"
+    },
+    {
+      "name": "onBrowserAddress",
+      "line": 15,
+      "implementation": "onBrowserAddress: (handler) => {\r\n    const listener = (_event, id) => handler(id)\r\n    ipcRenderer.on('browser:focus-address', listener)\r\n    return () => ipcRenderer.removeListener('browser:focus-address', listener)\r\n  }"
+    },
+    {
+      "name": "customTitleBar",
+      "line": 24,
+      "implementation": "customTitleBar: (process.argv || []).includes('--custom-title-bar=1')"
+    },
+    {
+      "name": "shellTheme",
+      "line": 26,
+      "implementation": "shellTheme: ['dark', 'light', 'system'].find((theme) => (process.argv || []).includes(`--shell-theme=${theme}`))"
+    },
+    {
+      "name": "apiToken",
+      "line": 35,
+      "implementation": "apiToken: () => {\r\n    try {\r\n      return ipcRenderer.sendSync('freebuff:apiToken') ?? null\r\n    } catch {\r\n      return null\r\n    }\r\n  }"
+    },
+    {
+      "name": "setShortcutRecording",
+      "line": 43,
+      "implementation": "setShortcutRecording: (recording) => ipcRenderer.send('menu:recording', recording)"
+    },
+    {
+      "name": "setMenuShortcuts",
+      "line": 44,
+      "implementation": "setMenuShortcuts: (bindings) => ipcRenderer.send('menu:shortcuts', bindings)"
+    },
+    {
+      "name": "onMenuCommand",
+      "line": 45,
+      "implementation": "onMenuCommand: (handler) => {\r\n    const listener = (_event, name) => handler(name)\r\n    ipcRenderer.on('menu-cmd', listener)\r\n    ipcRenderer.send('menu:ready')\r\n    return () => ipcRenderer.removeListener('menu-cmd', listener)\r\n  }"
+    },
+    {
+      "name": "getPathForFile",
+      "line": 53,
+      "implementation": "getPathForFile: (file) => {\r\n    try {\r\n      return webUtils.getPathForFile(file)\r\n    } catch {\r\n      return ''\r\n    }\r\n  }"
+    },
+    {
+      "name": "pickAttachments",
+      "line": 63,
+      "implementation": "pickAttachments: (kind) => ipcRenderer.invoke('dialog:pickAttachments', kind)"
+    },
+    {
+      "name": "pickImages",
+      "line": 66,
+      "implementation": "pickImages: () => ipcRenderer.invoke('dialog:pickImages')"
+    },
+    {
+      "name": "pickDirectory",
+      "line": 69,
+      "implementation": "pickDirectory: () => ipcRenderer.invoke('dialog:pickDirectory')"
+    },
+    {
+      "name": "saveClipboardImage",
+      "line": 72,
+      "implementation": "saveClipboardImage: (bytes, ext) => ipcRenderer.invoke('clipboard:saveImage', { bytes, ext })"
+    },
+    {
+      "name": "keepTransientFile",
+      "line": 75,
+      "implementation": "keepTransientFile: (filePath) => ipcRenderer.invoke('attachment:keepTransient', filePath)"
+    },
+    {
+      "name": "readImage",
+      "line": 78,
+      "implementation": "readImage: (filePath) => ipcRenderer.invoke('attachment:readImage', filePath)"
+    },
+    {
+      "name": "openTerminal",
+      "line": 81,
+      "implementation": "openTerminal: () => ipcRenderer.invoke('shell:openTerminal')"
+    },
+    {
+      "name": "openExternal",
+      "line": 84,
+      "implementation": "openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)"
+    },
+    {
+      "name": "revealChange",
+      "line": 88,
+      "implementation": "revealChange: (root, relativePath) =>\r\n    ipcRenderer.invoke('shell:revealChange', { root, relativePath })"
+    },
+    {
+      "name": "revealAppData",
+      "line": 92,
+      "implementation": "revealAppData: () => ipcRenderer.invoke('shell:revealAppData')"
+    },
+    {
+      "name": "detectOpenTargets",
+      "line": 93,
+      "implementation": "detectOpenTargets: () => ipcRenderer.invoke('shell:detectOpenTargets')"
+    },
+    {
+      "name": "openIn",
+      "line": 94,
+      "implementation": "openIn: (request) => ipcRenderer.invoke('shell:openIn', request)"
+    },
+    {
+      "name": "windowState",
+      "line": 97,
+      "implementation": "windowState: () => ipcRenderer.invoke('window:state')"
+    },
+    {
+      "name": "adContext",
+      "line": 102,
+      "implementation": "adContext: () => ipcRenderer.invoke('ads:context')"
+    },
+    {
+      "name": "minimizeWindow",
+      "line": 104,
+      "implementation": "minimizeWindow: () => ipcRenderer.invoke('window:minimize')"
+    },
+    {
+      "name": "toggleMaximizeWindow",
+      "line": 105,
+      "implementation": "toggleMaximizeWindow: () => ipcRenderer.invoke('window:toggleMaximize')"
+    },
+    {
+      "name": "closeWindow",
+      "line": 106,
+      "implementation": "closeWindow: (rendererClosedThread) =>\r\n    ipcRenderer.invoke('window:close', rendererClosedThread === true)"
+    },
+    {
+      "name": "onCloseRequest",
+      "line": 108,
+      "implementation": "onCloseRequest: (handler) => {\r\n    const listener = (_event, request) => handler(request)\r\n    ipcRenderer.on('close:request', listener)\r\n    ipcRenderer.send('close:ready', true)\r\n    return () => {\r\n      ipcRenderer.removeListener('close:request', listener)\r\n      ipcRenderer.send('close:ready', false)\r\n    }\r\n  }"
+    },
+    {
+      "name": "answerCloseRequest",
+      "line": 117,
+      "implementation": "answerCloseRequest: (id, accepted) => ipcRenderer.send('close:answer', id, accepted)"
+    },
+    {
+      "name": "openThreadWindow",
+      "line": 118,
+      "implementation": "openThreadWindow: (threadId, projectPath, focus) =>\r\n    ipcRenderer.invoke('window:openThread', { threadId, projectPath, focus })"
+    },
+    {
+      "name": "openFileInMainWindow",
+      "line": 120,
+      "implementation": "openFileInMainWindow: (request) => ipcRenderer.invoke('window:openFile', request)"
+    },
+    {
+      "name": "onOpenFile",
+      "line": 121,
+      "implementation": "onOpenFile: (handler) => {\r\n    const listener = (_event, request) => handler(request)\r\n    ipcRenderer.on('window:openFile', listener)\r\n    ipcRenderer.send('window:fileNavigationReady', true)\r\n    return () => {\r\n      ipcRenderer.removeListener('window:openFile', listener)\r\n      ipcRenderer.send('window:fileNavigationReady', false)\r\n    }\r\n  }"
+    },
+    {
+      "name": "requestAttention",
+      "line": 131,
+      "implementation": "requestAttention: () => ipcRenderer.send('window:requestAttention')"
+    },
+    {
+      "name": "clearAttention",
+      "line": 132,
+      "implementation": "clearAttention: () => ipcRenderer.send('window:clearAttention')"
+    },
+    {
+      "name": "notifyNeedsYou",
+      "line": 135,
+      "implementation": "notifyNeedsYou: (request) => ipcRenderer.invoke('notify:needsYou', request)"
+    },
+    {
+      "name": "onOpenNeedsYou",
+      "line": 136,
+      "implementation": "onOpenNeedsYou: (handler) => {\r\n    const listener = (_event, target) => handler(target)\r\n    ipcRenderer.on('notify:openNeedsYou', listener)\r\n    ipcRenderer.send('notify:needsYouReady', true)\r\n    return () => {\r\n      ipcRenderer.removeListener('notify:openNeedsYou', listener)\r\n      ipcRenderer.send('notify:needsYouReady', false)\r\n    }\r\n  }"
+    },
+    {
+      "name": "signInCompleted",
+      "line": 148,
+      "implementation": "signInCompleted: () => ipcRenderer.send('window:signInCompleted')"
+    },
+    {
+      "name": "tabContextMenu",
+      "line": 149,
+      "implementation": "tabContextMenu: () => ipcRenderer.invoke('menu:tabContext')"
+    },
+    {
+      "name": "onTextContextMenu",
+      "line": 151,
+      "implementation": "onTextContextMenu: (handler) => {\r\n    const listener = (_event, params) => handler(params)\r\n    ipcRenderer.on('text-context-menu', listener)\r\n    return () => ipcRenderer.removeListener('text-context-menu', listener)\r\n  }"
+    },
+    {
+      "name": "textEdit",
+      "line": 157,
+      "implementation": "textEdit: (command, arg) => ipcRenderer.send('text-edit', command, arg)"
+    },
+    {
+      "name": "downloadThreadFile",
+      "line": 158,
+      "implementation": "downloadThreadFile: (threadId, path) => ipcRenderer.invoke('file:download', { threadId, path })"
+    },
+    {
+      "name": "saveMarkdown",
+      "line": 159,
+      "implementation": "saveMarkdown: (filename, content) => ipcRenderer.invoke('dialog:saveMarkdown', { filename, content })"
+    },
+    {
+      "name": "onWindowStateChange",
+      "line": 160,
+      "implementation": "onWindowStateChange: (handler) => {\r\n    const listener = (_event, state) => handler(state)\r\n    ipcRenderer.on('window-state', listener)\r\n    return () => ipcRenderer.removeListener('window-state', listener)\r\n  }"
+    },
+    {
+      "name": "onUpdateCard",
+      "line": 167,
+      "implementation": "onUpdateCard: (handler) => {\r\n    const listener = (_event, card) => handler(card)\r\n    ipcRenderer.on('update-card', listener)\r\n    return () => ipcRenderer.removeListener('update-card', listener)\r\n  }"
+    },
+    {
+      "name": "pendingUpdate",
+      "line": 174,
+      "implementation": "pendingUpdate: () => ipcRenderer.invoke('update:pending')"
+    },
+    {
+      "name": "appVersion",
+      "line": 175,
+      "implementation": "appVersion: () => ipcRenderer.invoke('update:version')"
+    },
+    {
+      "name": "checkForUpdates",
+      "line": 177,
+      "implementation": "checkForUpdates: () => ipcRenderer.invoke('update:check')"
+    },
+    {
+      "name": "updateAction",
+      "line": 179,
+      "implementation": "updateAction: (action) => ipcRenderer.invoke('update:action', action)"
+    },
+    {
+      "name": "reportBusy",
+      "line": 181,
+      "implementation": "reportBusy: (busy, sessionOpen, sponsoredRuns) => ipcRenderer.send('update:busy', busy, sessionOpen, sponsoredRuns)"
+    },
+    {
+      "name": "reportHistory",
+      "line": 182,
+      "implementation": "reportHistory: (counts) => ipcRenderer.send('renderer:history', counts)"
+    },
+    {
+      "name": "bootInfo",
+      "line": 184,
+      "implementation": "bootInfo: () => ipcRenderer.invoke('renderer:boot-info')"
+    },
+    {
+      "name": "setTheme",
+      "line": 185,
+      "implementation": "setTheme: (theme, titleBarColors) => ipcRenderer.send('theme:set', theme, titleBarColors)"
+    },
+    {
+      "name": "interfaceZoom",
+      "line": 186,
+      "implementation": "interfaceZoom: () => ipcRenderer.invoke('interface-zoom:get')"
+    },
+    {
+      "name": "setInterfaceZoom",
+      "line": 187,
+      "implementation": "setInterfaceZoom: (percent) => ipcRenderer.invoke('interface-zoom:set', percent)"
+    },
+    {
+      "name": "onInterfaceZoom",
+      "line": 188,
+      "implementation": "onInterfaceZoom: (handler) => {\r\n    const listener = (_event, percent) => handler(percent)\r\n    ipcRenderer.on('interface-zoom', listener)\r\n    return () => ipcRenderer.removeListener('interface-zoom', listener)\r\n  }"
+    },
+    {
+      "name": "discordPresenceEnabled",
+      "line": 194,
+      "implementation": "discordPresenceEnabled: () => ipcRenderer.invoke('discord:enabled')"
+    },
+    {
+      "name": "setDiscordPresenceEnabled",
+      "line": 195,
+      "implementation": "setDiscordPresenceEnabled: (enabled) => ipcRenderer.invoke('discord:setEnabled', enabled)"
+    },
+    {
+      "name": "onTheme",
+      "line": 196,
+      "implementation": "onTheme: (handler) => {\r\n    const listener = (_event, theme) => handler(theme)\r\n    ipcRenderer.on('theme', listener)\r\n    return () => ipcRenderer.removeListener('theme', listener)\r\n  }"
+    }
+  ],
+  "threadActions": [],
+  "limitations": [
+    "Local task routes from 0.0.190 are absent in 0.0.201; workspace execution moved to hosted services.",
+    "Only declarations reachable from the server route composition are included."
+  ]
+}

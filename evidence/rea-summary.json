@@ -1,0 +1,81 @@
+{
+  "evidence_id": "ev_cb637fb84f31fd575749494b8f7f52328209badbc62497333b42fabbab511e99",
+  "subject": {
+    "name": "C:\\Users\\wtsco\\Documents\\Codex\\2026-11-06\\in\\work\\freebuff-extracted\\electron",
+    "digest": {
+      "sha256": "72bbadd3ef05f9aa502e19d573b9341c2fd8ba861115b04a221dce72d074bfa3"
+    },
+    "format": "directory",
+    "architecture": null,
+    "local_path": "C:\\Users\\wtsco\\Documents\\Codex\\2026-11-06\\in\\work\\freebuff-extracted\\electron"
+  },
+  "provider": {
+    "id": "rea-javascript-application",
+    "name": "REA JavaScript application analyzer",
+    "version": "1"
+  },
+  "operation": "analyze_javascript_application",
+  "confidence": "derived",
+  "authority": "shipped-artifact",
+  "limitations": [
+    "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+    "Dynamic IPC channel expressions remain unresolved and are never paired by textual similarity.",
+    "Electron relationships are derived from inert syntax; runtime registration, reachability, defaults, and enforcement remain unproven.",
+    "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
+    "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+    "Sender, frame, URL, and origin checks are observations only; REA does not claim that they enforce a complete authorization policy.",
+    "Some literal IPC channels have multiple compatible main handlers; ambiguous calls are not paired to any handler.",
+    "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution.",
+    "Static paths and relationships may remain unresolved when expressions are dynamic or obfuscated.",
+    "Webpack/Rspack factories were recovered from AST literals; REA did not invoke push handlers or bundle bootstrap code."
+  ],
+  "summary": {
+    "browser_windows": 4,
+    "explicit_web_preferences": 13,
+    "preload_entrypoints": 2,
+    "context_bridge_apis": 2,
+    "exposed_api_members": 61,
+    "ipc": {
+      "operations": 125,
+      "literal_channels": 63,
+      "dynamic_channel_operations": 5,
+      "renderer_transmissions": 59,
+      "renderer_listeners": 14,
+      "main_handlers": 52,
+      "paired_renderer_transmissions": 54,
+      "ambiguous_renderer_transmissions": 1,
+      "unpaired_literal_renderer_transmissions": 1
+    },
+    "sender_validation_observations": 4,
+    "utility_processes": 0,
+    "resolved_utility_entrypoints": 0,
+    "native_addon_bindings": 0,
+    "resolved_native_addon_bindings": 0
+  },
+  "statistics": {
+    "relevant_files": 109,
+    "nested_asar_containers": 0,
+    "text_bytes_read": 951396,
+    "invalid_utf8_files": 0,
+    "parsed_javascript_files": 106,
+    "visited_ast_nodes": 108721,
+    "findings": 1097,
+    "modules": 0,
+    "parse_failures": 0,
+    "truncated_scopes": 0
+  },
+  "graphKeys": [
+    "schema",
+    "root_node_ids",
+    "nodes",
+    "edges",
+    "coverage",
+    "limitations",
+    "graph_id"
+  ],
+  "originalEvidence": {
+    "path": "work/freebuff-electron-evidence.json",
+    "bytes": 365055031,
+    "sha256": "6389af471b2be8244c0968ba3fea6a20410140ea326d8fa251a81a471c5876b4"
+  }
+}

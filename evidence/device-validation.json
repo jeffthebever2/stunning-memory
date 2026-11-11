@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "version": "0.0.201",
+  "checks": [
+    "Signed-in hosted workspace registered an SDK-owned local project",
+    "prepareChat and runtime selected the local execution target",
+    "Typed HostedTerminalSession attach/readText/input/resize/detach/close completed",
+    "Terminal output captured a unique SDK_WRAPPER_MARKER",
+    "Native-agent status returned both shipped claude-code and codex harnesses"
+  ],
+  "fixture": "work/device-fixture"
+}

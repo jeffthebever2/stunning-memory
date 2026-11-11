@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "target": "SDK-instrumented isolated Freebuff 0.0.190 copy",
+  "installedLauncherChecks": ["Private copy launch/bridge/normal window close passed with retained 0.0.190 source", "Private copy launch/version/window-state/normal close passed with installed 0.0.201 source"],
+  "automaticUpdateChecksDisabled": true,
+  "checks": [
+    "58-member native bridge constructed",
+    "native version and window-state reads",
+    "native zoom setting write and readback",
+    "native pushed event and unsubscribe",
+    "HTTP authentication through the trusted preload"
+  ]
+}

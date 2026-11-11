@@ -1,0 +1,10 @@
+{
+  "version": "0.0.201",
+  "status": "passed",
+  "checks": [
+    "Version detection and removed local-task capability rejection",
+    "Signed-in hosted workspace bootstrap",
+    "Native agent status through current hosted-control API",
+    "Current hosted workspace status"
+  ]
+}

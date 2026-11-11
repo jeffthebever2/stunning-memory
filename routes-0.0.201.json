@@ -1,0 +1,207 @@
+[
+  {
+    "method": "POST",
+    "pattern": "/api/appearance/wallpapers",
+    "line": 216254
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/appearance/wallpapers/:filename",
+    "line": 216255
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/appearance/usage",
+    "line": 216256
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/auth/status",
+    "line": 216270
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/auth/login/start",
+    "line": 216282
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/auth/login/cancel",
+    "line": 216300
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/auth/logout",
+    "line": 216317
+  },
+  {
+    "method": "GET",
+    "pattern": "/auth/login/launch/:token",
+    "line": 216325
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/bootstrap",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/project-setup",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/native-agents",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/appearance",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/diagnose",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/profile-notice",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/activity",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/elevations",
+    "line": 218725
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/hosted-workspace/status",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/status",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/local-conversations",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/project-branches",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/runtime",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/release-chat",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/prepare-chat",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/terminal",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/media",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/files",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/git",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/sites-context",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/sites-publish",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/browser",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/create-local-project",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/enroll",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/logout",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/forget-local-project",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/hosted-workspace/disconnect",
+    "line": 218725
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/app/restarting-for-update",
+    "line": 219283
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/diagnostics/renderer-error",
+    "line": 219290
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/diagnostics/renderer-health",
+    "line": 219302
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/diagnostics/renderer-boot",
+    "line": 219324
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/diagnostics/sign-in-return",
+    "line": 219334
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/diagnostics/toast",
+    "line": 219355
+  }
+]

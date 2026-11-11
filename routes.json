@@ -1,0 +1,882 @@
+[
+  {
+    "method": "POST",
+    "pattern": "/api/agentic-lab/test",
+    "line": 250671
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/thread/:id/sites-context",
+    "line": 250818
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/thread/:id/sites-publish",
+    "line": 250853
+  },
+  {
+    "method": "PUT",
+    "pattern": "/api/sites/:siteId/environments/:environment/secrets/:name",
+    "line": 250917
+  },
+  {
+    "method": "DELETE",
+    "pattern": "/api/sites/:siteId/environments/:environment/secrets/:name",
+    "line": 250917
+  },
+  {
+    "method": "PUT",
+    "pattern": "/api/sites/:siteId/environments/:environment/publication",
+    "line": 250948
+  },
+  {
+    "method": "DELETE",
+    "pattern": "/api/sites/:siteId/environments/:environment/publication",
+    "line": 250948
+  },
+  {
+    "method": "DELETE",
+    "pattern": "/api/sites/:siteId",
+    "line": 250963
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/appearance/wallpapers",
+    "line": 251118
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/appearance/wallpapers/:filename",
+    "line": 251119
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/appearance/usage",
+    "line": 251120
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/attention",
+    "line": 251134
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/auth/status",
+    "line": 251148
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/auth/login/start",
+    "line": 251160
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/auth/login/cancel",
+    "line": 251178
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/auth/logout",
+    "line": 251195
+  },
+  {
+    "method": "GET",
+    "pattern": "/auth/login/launch/:token",
+    "line": 251203
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/coordinator",
+    "line": 251223
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/coordinator/:id/threads",
+    "line": 251243
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/coordinator/:id/resolve",
+    "line": 251255
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/events",
+    "line": 251319
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/integrations",
+    "line": 251377
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/integrations/search",
+    "line": 251387
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/integrations/connect",
+    "line": 251400
+  },
+  {
+    "method": "DELETE",
+    "pattern": "/api/integrations/accounts/:id",
+    "line": 251414
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/mcp/servers",
+    "line": 251437
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/mcp/servers/:serverId/tools",
+    "line": 251445
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/mcp/servers/:serverId/approve-launch",
+    "line": 251453
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/mcp/servers/:serverId/approve-tools",
+    "line": 251463
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/mcp/servers/:serverId/enable",
+    "line": 251476
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/mcp/servers",
+    "line": 251489
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/mcp/servers/:serverId/connection",
+    "line": 251504
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/mcp/servers/:serverId/remove",
+    "line": 251515
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/mcp/servers/:serverId/sign-in",
+    "line": 251525
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/mcp/reload",
+    "line": 251535
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/invitation/click",
+    "line": 251807
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/slot",
+    "line": 251844
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/intermission",
+    "line": 251856
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/break",
+    "line": 251864
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/partner",
+    "line": 251877
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/intent",
+    "line": 251888
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/billboard",
+    "line": 251899
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/display",
+    "line": 251910
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/policy",
+    "line": 251921
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/break-event",
+    "line": 251929
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/report",
+    "line": 251973
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/impression",
+    "line": 251981
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/invitation/displayed",
+    "line": 252006
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/invitation/recheck",
+    "line": 252033
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/proposal",
+    "line": 252143
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/proposal/:id/:action",
+    "line": 252180
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/proposal-prefs",
+    "line": 252279
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/click",
+    "line": 252289
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/engagement",
+    "line": 252308
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/ad/click-return",
+    "line": 252325
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/freebuff/prices/recheck",
+    "line": 252640
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/account/usage",
+    "line": 252652
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/streak",
+    "line": 252660
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/elevation/:requestId",
+    "line": 252691
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/question/:requestId",
+    "line": 252703
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/cli/codex/update",
+    "line": 252723
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/cli/claude/install",
+    "line": 252731
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/cli/codex/install",
+    "line": 252739
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/setup/bash",
+    "line": 252747
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/setup/cli/recheck",
+    "line": 252755
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/feedback",
+    "line": 252766
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/app/restarting-for-update",
+    "line": 252780
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/diagnostics/renderer-error",
+    "line": 252787
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/diagnostics/renderer-health",
+    "line": 252799
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/diagnostics/renderer-boot",
+    "line": 252821
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/diagnostics/sign-in-return",
+    "line": 252831
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/diagnostics/toast",
+    "line": 252852
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/onboarding",
+    "line": 252866
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/onboarding",
+    "line": 252874
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/profile-survey",
+    "line": 252897
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/profile-survey/answers",
+    "line": 252910
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/profile-survey",
+    "line": 252920
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/codebase-sales",
+    "line": 252969
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/codebase-sales",
+    "line": 252990
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/sponsored-survey",
+    "line": 253030
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/sponsored-survey",
+    "line": 253041
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/projects",
+    "line": 253314
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/templates",
+    "line": 253343
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/projects/access",
+    "line": 253359
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/project/validate",
+    "line": 253367
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/project/recents",
+    "line": 253377
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/projects",
+    "line": 253388
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/project/files",
+    "line": 253404
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/project/changes",
+    "line": 253412
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/project/changes/diff",
+    "line": 253429
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/project/open",
+    "line": 253437
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/project/relocate",
+    "line": 253450
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/project/remove",
+    "line": 253472
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/project/rename",
+    "line": 253491
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/project/cloud-policy",
+    "line": 253510
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/project/branches",
+    "line": 253524
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/project/switch-branch",
+    "line": 253538
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/project/git-state",
+    "line": 253559
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/project/execution-mode",
+    "line": 253580
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/project/execution-mode",
+    "line": 253590
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/project-env/targets",
+    "line": 253869
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/project-env",
+    "line": 253877
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/search",
+    "line": 254061
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/cloud/auto-archive",
+    "line": 254245
+  },
+  {
+    "method": "PATCH",
+    "pattern": "/api/cloud/auto-archive",
+    "line": 254245
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/account/skills",
+    "line": 254255
+  },
+  {
+    "method": "PUT",
+    "pattern": "/api/account/skills",
+    "line": 254255
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/account/web",
+    "line": 254272
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/account/web",
+    "line": 254272
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/account/settings/:section",
+    "line": 254280
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/cloud/skills/:action",
+    "line": 254298
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/cloud/projects",
+    "line": 254308
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/cloud/projects/:id/settings",
+    "line": 254316
+  },
+  {
+    "method": "PUT",
+    "pattern": "/api/cloud/projects/:id/settings",
+    "line": 254316
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/byok/connections/:id/models",
+    "line": 254349
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/byok/connections",
+    "line": 254360
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/byok/connections",
+    "line": 254368
+  },
+  {
+    "method": "PATCH",
+    "pattern": "/api/byok/connections/:id",
+    "line": 254378
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/byok/connections/:id/validate",
+    "line": 254391
+  },
+  {
+    "method": "DELETE",
+    "pattern": "/api/byok/connections/:id",
+    "line": 254401
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/cloud/agent-credentials",
+    "line": 254526
+  },
+  {
+    "method": "PUT",
+    "pattern": "/api/cloud/agent-credentials/claude-code",
+    "line": 254534
+  },
+  {
+    "method": "DELETE",
+    "pattern": "/api/cloud/agent-credentials/claude-code",
+    "line": 254544
+  },
+  {
+    "method": "PUT",
+    "pattern": "/api/cloud/agent-credentials/codex",
+    "line": 254552
+  },
+  {
+    "method": "DELETE",
+    "pattern": "/api/cloud/agent-credentials/codex",
+    "line": 254562
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/cloud/agent-credentials/claude-code/login",
+    "line": 254570
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/cloud/agent-credentials/claude-code/login/complete",
+    "line": 254578
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/cloud/agent-credentials/claude-code/login/cancel",
+    "line": 254588
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/cloud/agent-credentials/claude-code/connect",
+    "line": 254600
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/byok/account/chatgpt/login",
+    "line": 254617
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/byok/account/chatgpt/poll",
+    "line": 254625
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/byok/account/chatgpt/models",
+    "line": 254635
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/byok/account",
+    "line": 254645
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/byok/account",
+    "line": 254653
+  },
+  {
+    "method": "PATCH",
+    "pattern": "/api/byok/account/:id",
+    "line": 254663
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/byok/account/:id/validate",
+    "line": 254676
+  },
+  {
+    "method": "DELETE",
+    "pattern": "/api/byok/account/:id",
+    "line": 254689
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/settings/auto-archive",
+    "line": 254779
+  },
+  {
+    "method": "PATCH",
+    "pattern": "/api/settings/auto-archive",
+    "line": 254779
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/workspace/bootstrap",
+    "line": 254796
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/workspace",
+    "line": 254819
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/settings/ui",
+    "line": 254829
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/diff-comments",
+    "line": 255039
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/thread-scratch",
+    "line": 255050
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/drafts",
+    "line": 255079
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/settings",
+    "line": 255109
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/settings",
+    "line": 255126
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/settings/startup-script",
+    "line": 255143
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/skills",
+    "line": 255165
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/skills/search",
+    "line": 255178
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/skills/install",
+    "line": 255188
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/skills/create",
+    "line": 255206
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/skill/:name/restore",
+    "line": 255223
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/skill/:name/delete",
+    "line": 255238
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/skill/:name",
+    "line": 255253
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/telemetry/feature",
+    "line": 255585
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/telemetry/funnel",
+    "line": 255602
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/telemetry/ad-density",
+    "line": 255614
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/telemetry/display-ad",
+    "line": 255635
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/threads",
+    "line": 255672
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/thread/:id",
+    "line": 255754
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/thread/:id/prompt-history",
+    "line": 255775
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/thread/:id/mission-receipts",
+    "line": 255791
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/thread/:id/cloud-panel",
+    "line": 255799
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/thread/:id/cloud-panel",
+    "line": 255799
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/thread/:id/files",
+    "line": 255815
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/thread/:id/files",
+    "line": 255826
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/thread/:id/file-download",
+    "line": 255841
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/thread/:id/file",
+    "line": 255860
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/thread/:id/file",
+    "line": 255874
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/thread/:id/pull-request",
+    "line": 255894
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/thread/:id/changes",
+    "line": 255904
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/thread/:id/changes/diff",
+    "line": 255915
+  },
+  {
+    "method": "GET",
+    "pattern": "/api/thread/:id/attachment",
+    "line": 255926
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/thread/:id/*action",
+    "line": 255957
+  },
+  {
+    "method": "POST",
+    "pattern": "/api/queue/:itemId/:action",
+    "line": 255962
+  }
+]

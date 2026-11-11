@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "version": "0.0.201",
+  "checks": [
+    "Cloud workspace activity opened",
+    "File create/read/revision-checked save and readback",
+    "Stale revision conflict preserves saved content",
+    "File listing and binary download",
+    "Base64 workspace file upload and exact binary download",
+    "Stored chat attachment upload/list/download"
+  ]
+}

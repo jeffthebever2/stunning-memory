@@ -1,0 +1,302 @@
+[
+  {
+    "name": "platform",
+    "line": 11,
+    "implementation": "platform: process.platform"
+  },
+  {
+    "name": "openHostedWorkspace",
+    "line": 12,
+    "implementation": "openHostedWorkspace: () => ipcRenderer.invoke('hosted-workspace:open')"
+  },
+  {
+    "name": "browserData",
+    "line": 13,
+    "implementation": "browserData: (request) => ipcRenderer.invoke('browser:data', request)"
+  },
+  {
+    "name": "prepareBrowserProfile",
+    "line": 14,
+    "implementation": "prepareBrowserProfile: (partition) => ipcRenderer.invoke('browser:prepare-profile', partition)"
+  },
+  {
+    "name": "onBrowserAddress",
+    "line": 15,
+    "implementation": "onBrowserAddress: (handler) => {\r\n    const listener = (_event, id) => handler(id)\r\n    ipcRenderer.on('browser:focus-address', listener)\r\n    return () => ipcRenderer.removeListener('browser:focus-address', listener)\r\n  }"
+  },
+  {
+    "name": "customTitleBar",
+    "line": 24,
+    "implementation": "customTitleBar: (process.argv || []).includes('--custom-title-bar=1')"
+  },
+  {
+    "name": "shellTheme",
+    "line": 26,
+    "implementation": "shellTheme: ['dark', 'light', 'system'].find((theme) => (process.argv || []).includes(`--shell-theme=${theme}`))"
+  },
+  {
+    "name": "apiToken",
+    "line": 35,
+    "implementation": "apiToken: () => {\r\n    try {\r\n      return ipcRenderer.sendSync('freebuff:apiToken') ?? null\r\n    } catch {\r\n      return null\r\n    }\r\n  }"
+  },
+  {
+    "name": "setShortcutRecording",
+    "line": 43,
+    "implementation": "setShortcutRecording: (recording) => ipcRenderer.send('menu:recording', recording)"
+  },
+  {
+    "name": "setMenuShortcuts",
+    "line": 44,
+    "implementation": "setMenuShortcuts: (bindings) => ipcRenderer.send('menu:shortcuts', bindings)"
+  },
+  {
+    "name": "onMenuCommand",
+    "line": 45,
+    "implementation": "onMenuCommand: (handler) => {\r\n    const listener = (_event, name) => handler(name)\r\n    ipcRenderer.on('menu-cmd', listener)\r\n    ipcRenderer.send('menu:ready')\r\n    return () => ipcRenderer.removeListener('menu-cmd', listener)\r\n  }"
+  },
+  {
+    "name": "getPathForFile",
+    "line": 53,
+    "implementation": "getPathForFile: (file) => {\r\n    try {\r\n      return webUtils.getPathForFile(file)\r\n    } catch {\r\n      return ''\r\n    }\r\n  }"
+  },
+  {
+    "name": "pickAttachments",
+    "line": 63,
+    "implementation": "pickAttachments: (kind) => ipcRenderer.invoke('dialog:pickAttachments', kind)"
+  },
+  {
+    "name": "pickImages",
+    "line": 66,
+    "implementation": "pickImages: () => ipcRenderer.invoke('dialog:pickImages')"
+  },
+  {
+    "name": "pickDirectory",
+    "line": 69,
+    "implementation": "pickDirectory: () => ipcRenderer.invoke('dialog:pickDirectory')"
+  },
+  {
+    "name": "saveClipboardImage",
+    "line": 72,
+    "implementation": "saveClipboardImage: (bytes, ext) => ipcRenderer.invoke('clipboard:saveImage', { bytes, ext })"
+  },
+  {
+    "name": "keepTransientFile",
+    "line": 75,
+    "implementation": "keepTransientFile: (filePath) => ipcRenderer.invoke('attachment:keepTransient', filePath)"
+  },
+  {
+    "name": "readImage",
+    "line": 78,
+    "implementation": "readImage: (filePath) => ipcRenderer.invoke('attachment:readImage', filePath)"
+  },
+  {
+    "name": "openTerminal",
+    "line": 81,
+    "implementation": "openTerminal: () => ipcRenderer.invoke('shell:openTerminal')"
+  },
+  {
+    "name": "openExternal",
+    "line": 84,
+    "implementation": "openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)"
+  },
+  {
+    "name": "revealChange",
+    "line": 88,
+    "implementation": "revealChange: (root, relativePath) =>\r\n    ipcRenderer.invoke('shell:revealChange', { root, relativePath })"
+  },
+  {
+    "name": "revealAppData",
+    "line": 92,
+    "implementation": "revealAppData: () => ipcRenderer.invoke('shell:revealAppData')"
+  },
+  {
+    "name": "detectOpenTargets",
+    "line": 93,
+    "implementation": "detectOpenTargets: () => ipcRenderer.invoke('shell:detectOpenTargets')"
+  },
+  {
+    "name": "openIn",
+    "line": 94,
+    "implementation": "openIn: (request) => ipcRenderer.invoke('shell:openIn', request)"
+  },
+  {
+    "name": "windowState",
+    "line": 97,
+    "implementation": "windowState: () => ipcRenderer.invoke('window:state')"
+  },
+  {
+    "name": "adContext",
+    "line": 102,
+    "implementation": "adContext: () => ipcRenderer.invoke('ads:context')"
+  },
+  {
+    "name": "minimizeWindow",
+    "line": 104,
+    "implementation": "minimizeWindow: () => ipcRenderer.invoke('window:minimize')"
+  },
+  {
+    "name": "toggleMaximizeWindow",
+    "line": 105,
+    "implementation": "toggleMaximizeWindow: () => ipcRenderer.invoke('window:toggleMaximize')"
+  },
+  {
+    "name": "closeWindow",
+    "line": 106,
+    "implementation": "closeWindow: (rendererClosedThread) =>\r\n    ipcRenderer.invoke('window:close', rendererClosedThread === true)"
+  },
+  {
+    "name": "onCloseRequest",
+    "line": 108,
+    "implementation": "onCloseRequest: (handler) => {\r\n    const listener = (_event, request) => handler(request)\r\n    ipcRenderer.on('close:request', listener)\r\n    ipcRenderer.send('close:ready', true)\r\n    return () => {\r\n      ipcRenderer.removeListener('close:request', listener)\r\n      ipcRenderer.send('close:ready', false)\r\n    }\r\n  }"
+  },
+  {
+    "name": "answerCloseRequest",
+    "line": 117,
+    "implementation": "answerCloseRequest: (id, accepted) => ipcRenderer.send('close:answer', id, accepted)"
+  },
+  {
+    "name": "openThreadWindow",
+    "line": 118,
+    "implementation": "openThreadWindow: (threadId, projectPath, focus) =>\r\n    ipcRenderer.invoke('window:openThread', { threadId, projectPath, focus })"
+  },
+  {
+    "name": "openFileInMainWindow",
+    "line": 120,
+    "implementation": "openFileInMainWindow: (request) => ipcRenderer.invoke('window:openFile', request)"
+  },
+  {
+    "name": "onOpenFile",
+    "line": 121,
+    "implementation": "onOpenFile: (handler) => {\r\n    const listener = (_event, request) => handler(request)\r\n    ipcRenderer.on('window:openFile', listener)\r\n    ipcRenderer.send('window:fileNavigationReady', true)\r\n    return () => {\r\n      ipcRenderer.removeListener('window:openFile', listener)\r\n      ipcRenderer.send('window:fileNavigationReady', false)\r\n    }\r\n  }"
+  },
+  {
+    "name": "requestAttention",
+    "line": 131,
+    "implementation": "requestAttention: () => ipcRenderer.send('window:requestAttention')"
+  },
+  {
+    "name": "clearAttention",
+    "line": 132,
+    "implementation": "clearAttention: () => ipcRenderer.send('window:clearAttention')"
+  },
+  {
+    "name": "notifyNeedsYou",
+    "line": 135,
+    "implementation": "notifyNeedsYou: (request) => ipcRenderer.invoke('notify:needsYou', request)"
+  },
+  {
+    "name": "onOpenNeedsYou",
+    "line": 136,
+    "implementation": "onOpenNeedsYou: (handler) => {\r\n    const listener = (_event, target) => handler(target)\r\n    ipcRenderer.on('notify:openNeedsYou', listener)\r\n    ipcRenderer.send('notify:needsYouReady', true)\r\n    return () => {\r\n      ipcRenderer.removeListener('notify:openNeedsYou', listener)\r\n      ipcRenderer.send('notify:needsYouReady', false)\r\n    }\r\n  }"
+  },
+  {
+    "name": "signInCompleted",
+    "line": 148,
+    "implementation": "signInCompleted: () => ipcRenderer.send('window:signInCompleted')"
+  },
+  {
+    "name": "tabContextMenu",
+    "line": 149,
+    "implementation": "tabContextMenu: () => ipcRenderer.invoke('menu:tabContext')"
+  },
+  {
+    "name": "onTextContextMenu",
+    "line": 151,
+    "implementation": "onTextContextMenu: (handler) => {\r\n    const listener = (_event, params) => handler(params)\r\n    ipcRenderer.on('text-context-menu', listener)\r\n    return () => ipcRenderer.removeListener('text-context-menu', listener)\r\n  }"
+  },
+  {
+    "name": "textEdit",
+    "line": 157,
+    "implementation": "textEdit: (command, arg) => ipcRenderer.send('text-edit', command, arg)"
+  },
+  {
+    "name": "downloadThreadFile",
+    "line": 158,
+    "implementation": "downloadThreadFile: (threadId, path) => ipcRenderer.invoke('file:download', { threadId, path })"
+  },
+  {
+    "name": "saveMarkdown",
+    "line": 159,
+    "implementation": "saveMarkdown: (filename, content) => ipcRenderer.invoke('dialog:saveMarkdown', { filename, content })"
+  },
+  {
+    "name": "onWindowStateChange",
+    "line": 160,
+    "implementation": "onWindowStateChange: (handler) => {\r\n    const listener = (_event, state) => handler(state)\r\n    ipcRenderer.on('window-state', listener)\r\n    return () => ipcRenderer.removeListener('window-state', listener)\r\n  }"
+  },
+  {
+    "name": "onUpdateCard",
+    "line": 167,
+    "implementation": "onUpdateCard: (handler) => {\r\n    const listener = (_event, card) => handler(card)\r\n    ipcRenderer.on('update-card', listener)\r\n    return () => ipcRenderer.removeListener('update-card', listener)\r\n  }"
+  },
+  {
+    "name": "pendingUpdate",
+    "line": 174,
+    "implementation": "pendingUpdate: () => ipcRenderer.invoke('update:pending')"
+  },
+  {
+    "name": "appVersion",
+    "line": 175,
+    "implementation": "appVersion: () => ipcRenderer.invoke('update:version')"
+  },
+  {
+    "name": "checkForUpdates",
+    "line": 177,
+    "implementation": "checkForUpdates: () => ipcRenderer.invoke('update:check')"
+  },
+  {
+    "name": "updateAction",
+    "line": 179,
+    "implementation": "updateAction: (action) => ipcRenderer.invoke('update:action', action)"
+  },
+  {
+    "name": "reportBusy",
+    "line": 181,
+    "implementation": "reportBusy: (busy, sessionOpen, sponsoredRuns) => ipcRenderer.send('update:busy', busy, sessionOpen, sponsoredRuns)"
+  },
+  {
+    "name": "reportHistory",
+    "line": 182,
+    "implementation": "reportHistory: (counts) => ipcRenderer.send('renderer:history', counts)"
+  },
+  {
+    "name": "bootInfo",
+    "line": 184,
+    "implementation": "bootInfo: () => ipcRenderer.invoke('renderer:boot-info')"
+  },
+  {
+    "name": "setTheme",
+    "line": 185,
+    "implementation": "setTheme: (theme, titleBarColors) => ipcRenderer.send('theme:set', theme, titleBarColors)"
+  },
+  {
+    "name": "interfaceZoom",
+    "line": 186,
+    "implementation": "interfaceZoom: () => ipcRenderer.invoke('interface-zoom:get')"
+  },
+  {
+    "name": "setInterfaceZoom",
+    "line": 187,
+    "implementation": "setInterfaceZoom: (percent) => ipcRenderer.invoke('interface-zoom:set', percent)"
+  },
+  {
+    "name": "onInterfaceZoom",
+    "line": 188,
+    "implementation": "onInterfaceZoom: (handler) => {\r\n    const listener = (_event, percent) => handler(percent)\r\n    ipcRenderer.on('interface-zoom', listener)\r\n    return () => ipcRenderer.removeListener('interface-zoom', listener)\r\n  }"
+  },
+  {
+    "name": "discordPresenceEnabled",
+    "line": 194,
+    "implementation": "discordPresenceEnabled: () => ipcRenderer.invoke('discord:enabled')"
+  },
+  {
+    "name": "setDiscordPresenceEnabled",
+    "line": 195,
+    "implementation": "setDiscordPresenceEnabled: (enabled) => ipcRenderer.invoke('discord:setEnabled', enabled)"
+  },
+  {
+    "name": "onTheme",
+    "line": 196,
+    "implementation": "onTheme: (handler) => {\r\n    const listener = (_event, theme) => handler(theme)\r\n    ipcRenderer.on('theme', listener)\r\n    return () => ipcRenderer.removeListener('theme', listener)\r\n  }"
+  }
+]

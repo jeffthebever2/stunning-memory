@@ -1,0 +1,41 @@
+{
+  "target": "Installed Freebuff Desktop 0.0.190 Windows Bun orchestrator",
+  "sdkRuntimeChangesNeeded": true,
+  "unitTestsPassed": 30,
+  "typescriptValidation": "Passed strict declaration checks, including rejected invalid operation/action names and missing path parameters",
+  "liveChecksPassed": [
+    "Invalid launch token rejected with HTTP 401",
+    "Authenticated project listing",
+    "SSE initial replay and cancellation",
+    "UI setting saved and read back from isolated profile",
+    "Invalid settings body returned HTTP 400 through FreebuffError",
+    "Thread creation, snapshot, rename and readback in fixture project",
+    "Authenticated terminal WebSocket ready event and session closure",
+    "Model discovery and switching between mimo/mimo-v2.5 and z-ai/glm-5.3-flash with persisted readback",
+    "Switching between two real project engines",
+    "Real Codex task execution and captured assistant response",
+    "Owned launcher startup, authentication status and shutdown",
+    "User sign-in persisted across launcher restarts",
+    "Hosted generation on two live catalog models in the same conversation",
+    "Real write_todos tool calls and completed checklists captured on both models",
+    "Isolated instrumented Electron copy: version, window state, zoom write/read, event subscription/unsubscribe, HTTP connection through trusted preload",
+    "0.0.201 detected with 40 local API routes; signed-in hosted bootstrap, workspace status and native-agent status",
+    "Current hosted origin: account identity, catalog and project history reads; real cloud task output and second model in same workspace; prior session release",
+    "Live binary attachment upload/download and converted document descriptor",
+    "Hosted task returned random contents present only in its uploaded file; live SSE completed the run",
+    "Cloud file create/read/save/list/upload/download; HTTP-200 stale-revision conflict preserved existing content",
+    "Stored chat attachment upload/list/download"
+  ],
+  "isolation": {
+    "freshProfileAndProject": true,
+    "remoteApiHost": "http://127.0.0.1:9",
+    "ownServerStopped": true
+  },
+  "notValidated": [
+    "Every recovered endpoint against a live server",
+    "Cloud handoff, publishing and billing mutations",
+    "Native dialogs, browser data operations, updater mutations and consent-window behavior",
+    "Terminal input, output, resize and reconnection semantics",
+    "Versions other than 0.0.190"
+  ]
+}

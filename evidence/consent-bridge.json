@@ -1,0 +1,17 @@
+[
+  {
+    "name": "ready",
+    "line": 16,
+    "implementation": "ready: (onRequest) => {\r\n    ipcRenderer.on(CHANNEL, (_event, message) => {\r\n      if (message?.type === 'request') onRequest(message.options)\r\n    })\r\n    ipcRenderer.send(CHANNEL, { type: 'ready' })\r\n  }"
+  },
+  {
+    "name": "answer",
+    "line": 22,
+    "implementation": "answer: (approved) => ipcRenderer.send(CHANNEL, { type: 'answer', approved })"
+  },
+  {
+    "name": "height",
+    "line": 23,
+    "implementation": "height: (px) => ipcRenderer.send(CHANNEL, { type: 'height', px })"
+  }
+]

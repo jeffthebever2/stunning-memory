@@ -1,0 +1,234 @@
+{
+  "origin": "https://staging-2-auth.freebuffweb.site",
+  "source": "Reviewed hosted origin from shipped 0.0.201 electron/hosted-workspace.cjs",
+  "scripts": [
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/26z9k8v2g2z2w.js",
+      "sha256": "b1704f86c38f02fd8917c830daf963479bad5b264666843bfef33a98dacbe0ed"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/2nsn2slz5emql.js",
+      "sha256": "7688a88e40b7572e7fb2a8ed969669220139597770cf6a9502a4ab5df85375fd"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/359mbg9h6s0uk.js",
+      "sha256": "210977d9813a6e75eda36adae9c6a2d3c13866d9e9c7bfd5f4b1a6658b6b5431"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/2-9_w-6ju7awi.js",
+      "sha256": "210ce7096cd19425b1eb970c43823ead1e158c565debee6e7168e2c2ced7c950"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/1nmhk7nkvqz18.js",
+      "sha256": "3498a68f4b4e8564b5b87a10b55daa607b1eb3331fa61a71a12004b59fde6f57"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/turbopack-2c3mg3r-05n1w.js",
+      "sha256": "b5f9b5199b99ab6c141f4540f0b7d0fe803c4ecf6956849ecb6e59d3d439272e"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/2ltjsps6mw66r.js",
+      "sha256": "e59ace4eb1c546064f71c20e513cda6cb8802633e27995bffff0163a5bbe8135"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/3gzkxlgn0pr15.js",
+      "sha256": "5c9b362fec79e72c6e4679592a3ce9365b8f1f7f8ad09220397e4c93c6df931d"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/0qmqpkkewgqol.js",
+      "sha256": "e5822c5fe3e818b782065f11f736560e3a00affec5996f787fd7c85a211abcd3"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/1c-py-sn9lxl3.js",
+      "sha256": "9660b4b251d2839a741ae639f0db9bdbb916278e5852b3edf073d2890ae7048c"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/2gioxuvqf1ajx.js",
+      "sha256": "069a178707b6a0c0793a8536cc959ab06686c7a66904b2a393254685a0f0e7d5"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/04368516t0ivx.js",
+      "sha256": "3aa6f51d8edc3119f69da039e926589c351a972e1d81294e21201e1a9f6adaf7"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/3wke431--oqqv.js",
+      "sha256": "ed7a0d929761211f2541e99a8a9b060636bc2c11183f154a7b616fb402dbe745"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/2whcvke4ck9-i.js",
+      "sha256": "61d04130f197c1a1ac9cd70e55b65637435097c03d014f8a6533dc37d5e4469b"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/1pj12u4dnik2w.js",
+      "sha256": "ad59062a604f488d2e7058891a100a26ea00218ae7f10aca2c7220524487bcc2"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/0vs7epgvpz1zk.js",
+      "sha256": "b5cec7b89b5d95a6fc5d3f3ead2edf0b3f9b707801f73701f8af7b5c1277be80"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/1qjmdkxxidqad.js",
+      "sha256": "04c00e33d459fae36077bef206ba0ebe1b9d48c9437457e3f85f6e876f2cedba"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/3rjjdfb1pa8vq.js",
+      "sha256": "a47cb3b8dcd1165cb93e29a7e72a05dc77f3f83f83e76e60121aa430c82a542a"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/1s6ppfoo6b393.js",
+      "sha256": "513be24cd74041b76100df8d4a48002dacc146305c63b6cc1e2a9259ebce749c"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/35l9zanpss0gc.js",
+      "sha256": "123daf2895a9f4a572a47b68aeebc1b7be51e83294504d54f4b49285ee782587"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/35jy9-_4xg_3m.js",
+      "sha256": "cf9e1a93f23717a39089f72032be57dad59c1e74c7641010d2c172032be64e11"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/3d1nhm0qwxs50.js",
+      "sha256": "5b9b53c613f8a5976c195a0891b522f65d1c05c8f8d1a5964dbaad9e96210d11"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/2i5u6d74fm1do.js",
+      "sha256": "e60827488d43c0cb808e84a292959e8e3a35d58c8e86f883a06c59a6a899e07e"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/38tf53x38de37.js",
+      "sha256": "614c679aa495c25b5a4880855ca0a48a257f3ff8f0e8d637184890886409f57f"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/3nm8g5i-f_aiq.js",
+      "sha256": "99742d028d70b047801cfae6082efbcb67c7fb3004bdeec4f301818a4ce016d7"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/3q3fmehjhrhx3.js",
+      "sha256": "ade8e147f4cf2336f32110f6f79ba7b7874e6a8864e9ffdfb3d10790401fd91c"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/30glg1ykp02t3.js",
+      "sha256": "33120d06e91ba7d34cbee28253fcdc60743c79d0cafd720ebdf992eb23263922"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/22c983mloauex.js",
+      "sha256": "6d010667d9e0823eaf606b71407743249a9de6aa4bfcd5f4d0c022dc6ce433af"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/15_4xam7qsgjq.js",
+      "sha256": "bb137041009c8475d8f463f15a7fcaaf7c12916c74f99388c44e48795c738641"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/0-ctepeyd7xhj.js",
+      "sha256": "5891e46ff41c94b3449ebaa4ef9d092968830ac994e78234c33a8fe551babc72"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/2k4b7kbu-tpp1.js",
+      "sha256": "3c6fbace2f47c77735b9d567ebae0fc3720fe005b2704089293fb9d6ba104bd9"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/06mgzdq8oea6r.js",
+      "sha256": "20cbdfafde75c6fca0f67bceec5c23d76fac08a43a8ef2590452a6c9c76c1ffc"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/2rij6bj_rjhzc.js",
+      "sha256": "7eca3b47e726662de059777ab0f3a392254a5e9e7ed90a52c37b27ba33bd7158"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/2127v1a-50c9_.js",
+      "sha256": "9bd1b9ae7bd2a503a9ccfc9890ec7229fd295b2d0d2775dcf16c84e4036bbe83"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/15o-2ww35fsac.js",
+      "sha256": "4d205f6b55454749608c725b81e448279a8bf76912748ed369e530921cb7955e"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/097vk66ed3n43.js",
+      "sha256": "f4261b01e459e2e3ead531b5d619a4499e392738391116bf59ae4f56a872ba3b"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/2g9mw2w_h3r0o.js",
+      "sha256": "e4ca113e16a7000844f8fccb5b603e5a94d9642d439e21179372bb38d14efd03"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/346wuhpky5avn.js",
+      "sha256": "06d25f34556bc23bc12ff62d2112c3785f159be8b2b6ba201af15f18a88d087f"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/0kri3txrt1iad.js",
+      "sha256": "be4a3e4d8521392004fc8b63887eb99078369e5ce2e63368bd4f94a85bf5208c"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/1w5qv34o71fti.js",
+      "sha256": "88fedace30c85e4c5e29b66353c90b4c746f0acd60c6250f005d856d15f3aaf6"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/0pr4hswgxqzfi.js",
+      "sha256": "7a435a548682675c40d89e8ab5cb72abc4dd66f4f390579597d27e525c015c62"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/3-xa1u4gnl1vn.js",
+      "sha256": "4ce77d69e7de0b853c44225a0b833f8dfa9297f0c449a2e26233487b0a9842d7"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/3h4q73iqzch-8.js",
+      "sha256": "03c354039b9d298727039288e75c92066f36cb4e336457800e6cad89597cd33c"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/017wjwxb8ypb-.js",
+      "sha256": "73d2f92ba5dd7ddc91fb226602827201db9744c56ff55a44c730b667f9cce1f7"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/2d1uxnn181apx.js",
+      "sha256": "71dbdc05159fda17658f2773acd95d7862a3df19559ef4629ac7fa97a30820fc"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/0mc9mldem21ib.js",
+      "sha256": "cbf1ae526d63aeb6b25b335c4ec12519dc3b7ba1a1e1f96c5221012f010163f8"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/0jgns20__cz8a.js",
+      "sha256": "d4bbef8e2521d9362bf37b410470ddba8c3b996e277fbb7bb8228ddc367d09da"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/2eac2qxui-23y.js",
+      "sha256": "1a67679eb9ff5cc903de3fdaa99e2566cefdbde207037b90cf639a4dc7b296e0"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/2x87thna3pe6t.js",
+      "sha256": "7e6efa15e792dc64f0c89efe3ff195808194ad1767b6bb3536b283604c54ca8b"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/3rkgl8w1gishe.js",
+      "sha256": "d05b5bf1adc64592a6c39ef66107bd013c9bdaa93a80bb936f88c5dfdd372a42"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/435f0c2o2xnfe.js",
+      "sha256": "f4f8aa0f6dfc2dae27fc0927f46810a24de54d44b96642acfb42511fb3f7cbcd"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/3fyex6rs6wym1.js",
+      "sha256": "b84462f569ea1e1f4ae76d5e5a65efee5fe3959c466ec18d61ec00c70a116e77"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/1eg4jtn8dz4w-.js",
+      "sha256": "40dc0b12bbcf5c3ab7bcb781293a2cc996afaafb631bf13d046f4eb510299d8e"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/16kjy9cc9tpdo.js",
+      "sha256": "91d5fe84f52014ee55dce881b6dbb403ce4fa528d5a97dfb79933062b6d1eafb"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/1w9scwenf7a4v.js",
+      "sha256": "02b3c570addfe5546fdf28e02a449430ca42661158a4a36fe0435a3c1d8b6753"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/0cz1d0mv5g_q7.js",
+      "sha256": "0973c1d64c88adc8e3c950410cb58b288f72118d5965b78049438deb8f2f9683"
+    },
+    {
+      "url": "https://staging-2-auth.freebuffweb.site/_next/static/chunks/2694zdb02osfi.js",
+      "sha256": "4dacb4fb5724b90f733dddaf760f41797b538ca3c47687c70d0b30a81fcaefa4"
+    }
+  ]
+}

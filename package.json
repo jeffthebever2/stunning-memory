@@ -1,0 +1,13 @@
+{
+  "name": "freebuff-desktop-sdk-local",
+  "version": "0.0.190-recovered.1",
+  "type": "module",
+  "private": true,
+  "bin": { "freebuff-sdk": "./cli.mjs" },
+  "types": "./index.d.ts",
+  "exports": { ".": {"types": "./index.d.ts", "default": "./index.js"}, "./server": {"types": "./server.d.ts", "default": "./server.js"}, "./hosted": {"types": "./hosted.d.ts", "default": "./hosted.js"}, "./desktop": {"types": "./desktop.d.ts", "default": "./desktop.js"}, "./desktop-launcher": {"types": "./desktop-launcher.d.ts", "default": "./desktop-launcher.js"}, "./routes": "./routes.json" },
+  "optionalDependencies": { "@electron/asar": "4.2.0" },
+  "scripts": { "test": "node --test", "test:live": "node live-smoke.mjs", "test:hosted": "node hosted-smoke.mjs", "types:generate": "node generate-types.mjs", "test:types": "tsc --noEmit --strict --module NodeNext --target ES2022 --lib ES2022,DOM validation/types.mts" },
+  "devDependencies": { "typescript": "7.0.2" },
+  "engines": { "node": ">=22.12" }
+}

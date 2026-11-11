@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "version": "0.0.201",
+  "checks": [
+    "Account verified against workspace auth",
+    "Model catalog and project history reads",
+    "Real current-version cloud send and completed assistant output",
+    "Second model in same workspace, prior session release, completed output"
+  ],
+  "secondModel": "MiMo v2.6 Flash Fast"
+}

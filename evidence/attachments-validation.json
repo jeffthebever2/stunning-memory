@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "version": "0.0.201",
+  "checks": [
+    "Real binary attachment upload and exact download round-trip",
+    "Real document conversion and descriptor validation",
+    "Real hosted task consumed uploaded file and returned its private random contents",
+    "Live SSE stream delivered run output through completion"
+  ],
+  "streamEstablished": true
+}

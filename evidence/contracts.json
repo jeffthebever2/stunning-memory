@@ -1,0 +1,1572 @@
+{
+  "version": "0.0.190",
+  "sha256": "d76197c9bc0eb0816dd8ec53f5cdbdaca0b36f4ce1ee0d4a20e1907aa22f7320",
+  "source": "C:\\Users\\wtsco\\AppData\\Local/Programs/@codebufffreebuff-desktop/resources/orchestrator/orchestrator.js",
+  "routes": [
+    {
+      "method": "POST",
+      "pattern": "/api/agentic-lab/test",
+      "line": 250671,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), ref = labDesktopTestRefSchema.safeParse(value2.ref);\n      if (!ref.success)\n        return json4({ error: \"Invalid skill reference\" }, 400);\n      if (!app.auth().token)\n        return json4({ error: \"Sign in to Desktop to test this skill.\" }, 401);\n      let raw = yield* exports_Effect.promise(() => app.proposals.sponsoredSkill?.({\n        id: ref.data.skillId,\n        version: ref.data.version,\n        sha256: ref.data.sha256\n      }) ?? Promise.resolve(null)), skill33;\n      try {\n        skill33 = verifiedLabSkill(ref.data, raw);\n      } catch (error46) {\n        return json4({ error: error46.message }, 400);\n      }\n      if (value2.preview === !0)\n        return json4({\n          title: `${skill33.id}@${skill33.version}`,\n          procedure: renderSponsoredSkillProcedure(skill33)\n        });\n      if (value2.accepted !== !0 || typeof value2.projectPath !== \"string\" || !value2.projectPath)\n        return json4({ error: \"Review the skill and select a test folder first.\" }, 400);\n      if (!((\"available\" in sponsoredContainment()) && sponsoredContainment().available) || process.platform === \"win32\")\n        return json4({\n          error: \"Native Lab tests require macOS sandboxing or Linux Bubblewrap on this build.\"\n        }, 400);\n      let opened = yield* exports_Effect.promise(() => app.registry.ensure(value2.projectPath));\n      if (!opened.ok)\n        return json4({ error: opened.error }, 400);\n      let id3 = crypto.randomUUID();\n      yield* exports_Effect.promise(() => opened.engine.prepareLocalThreadDirectory(id3)), yield* exports_Effect.promise(() => saveLabTest(id3, opened.path, skill33)), opened.engine.createThread({\n        id: id3,\n        title: `Lab test: ${skill33.id}@${skill33.version}`,\n        harnessId: \"codebuff\",\n        executionMode: \"local\",\n        sourceBranch: null,\n        draft: !0\n      });\n      let queued = yield* exports_Effect.either(opened.engine.enqueuePrompt(id3, labDesktopPrompt(skill33), {\n        now: !0\n      }));\n      if (queued._tag === \"Left\")\n        return json4({ error: queued.left.message }, 400);\n      return app.registry.markRecent(opened.path), json4({ threadId: id3, projectPath: opened.path });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/thread/:id/sites-context",
+      "line": 250818,
+      "handler": "(_req, url2, params) => exports_Effect.gen(function* () {\n    let app = yield* App;\n    if (!app.sites)\n      return json4({ error: \"Sites is unavailable.\" }, 503);\n    let owner = app.registry.forThread(params.id) ?? app.registry.get(url2.searchParams.get(\"projectPath\"));\n    if (!owner)\n      return json4({ error: \"Project not found.\" }, 404);\n    let thread = owner.getThread(params.id);\n    if (thread?.sponsored)\n      return json4({ compatible: !1, sites: [] });\n    let project3 = app.stateFile.readProject?.(owner.root);\n    return yield* exports_Effect.promise(async () => {\n      try {\n        let localDraft = !thread && project3?.location === \"local\" && !project3.noFolder, result2 = await app.sites.workspaceContext(project3, {\n          list: () => thread ? owner.listFilesResult(params.id, 1000, \"\") : localDraft ? listProjectDirectory(owner.root, \"\").then((files) => ({\n            files\n          })) : Promise.resolve({ files: [] }),\n          read: (path36) => thread ? owner.readThreadFile(params.id, path36) : localDraft ? readProjectFile(owner.root, path36) : Promise.resolve({\n            ok: !1,\n            error: \"Workspace unavailable.\"\n          })\n        }), response = json4(result2);\n        return response.headers.set(\"Cache-Control\", \"no-store\"), response;\n      } catch (error46) {\n        return error46 instanceof SitesClientError ? json4({ error: error46.message }, error46.status) : json4({ error: \"Could not inspect this project\\u2019s Sites.\" }, 503);\n      }\n    });\n  })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/thread/:id/sites-publish",
+      "line": 250853,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n    let app = yield* App, sites = app.sites;\n    if (!sites)\n      return json4({ error: \"Sites is unavailable.\" }, 503);\n    let owner = app.registry.forThread(params.id), thread = owner?.getThread(params.id);\n    if (!owner || !thread)\n      return json4({ error: \"Chat not found.\" }, 404);\n    if (thread.sponsored)\n      return json4({ error: \"Sponsored chats cannot publish sites.\" }, 403);\n    let raw = yield* exports_Effect.promise(() => req.text().catch(() => \"\")), input;\n    try {\n      if (raw.length > 2048)\n        throw Error(\"too large\");\n      input = publishBody.parse(JSON.parse(raw));\n    } catch {\n      return json4({ error: \"Invalid publish request.\" }, 400);\n    }\n    if (publishing.has(params.id))\n      return json4({ error: \"This chat is already publishing.\" }, 409);\n    let project3 = app.stateFile.readProject?.(owner.root), cloud = thread.executionTarget === \"cloud\", cwd = cloud ? null : yield* exports_Effect.promise(() => owner.terminalCwd(params.id, { reopen: !0 }));\n    if (!cloud && !cwd)\n      return json4({ error: \"This chat\\u2019s workspace is unavailable. Reopen the chat and try again.\" }, 409);\n    return publishing.add(params.id), sitePublishResponse(async (onEvent, signal) => {\n      try {\n        if (!cloud)\n          return await sites.publish({\n            cwd,\n            project: project3,\n            environment: input.environment,\n            siteId: input.siteId,\n            siteName: input.name,\n            signal,\n            onEvent\n          });\n        let response = await owner.publishCloudSite(params.id, input, sites.projectOrigin(project3), signal).catch((error46) => Response.json({ error: error46 instanceof Error ? error46.message : \"Cloud publishing is unavailable.\" }, { status: 502 })), result2 = await readSitePublishStream(response, (event) => {\n          if (event.type !== \"done\" && event.type !== \"error\")\n            onEvent(event);\n        });\n        return onEvent(result2), result2;\n      } finally {\n        publishing.delete(params.id);\n      }\n    }, req.signal);\n  })"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/sites/:siteId/environments/:environment/secrets/:name",
+      "line": 250917,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n    let app = yield* App, response = yield* exports_Effect.promise(async () => {\n      try {\n        if (!app.sites)\n          return json4({ error: \"Sites is unavailable.\" }, 503);\n        let input;\n        if (method === \"PUT\") {\n          let reader = req.body?.getReader();\n          if (!reader)\n            return json4({ error: \"A variable value is required.\" }, 400);\n          let chunks = [], size9 = 0;\n          while (!0) {\n            let next = await reader.read();\n            if (next.done)\n              break;\n            if (size9 += next.value.byteLength, size9 > 32768)\n              return await reader.cancel(), json4({ error: \"Variable request is too large.\" }, 413);\n            chunks.push(next.value);\n          }\n          input = JSON.parse(Buffer.concat(chunks).toString(\"utf8\"));\n        }\n        return json4(await app.sites.writeSecret(params.siteId, params.environment, params.name, method, input, req.headers.get(\"Idempotency-Key\") ?? \"\"));\n      } catch (error46) {\n        return error46 instanceof SitesClientError ? json4({ error: error46.message }, error46.status) : json4({ error: \"Invalid variable request.\" }, 400);\n      }\n    });\n    return response.headers.set(\"Cache-Control\", \"no-store\"), response;\n  })"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/sites/:siteId/environments/:environment/secrets/:name",
+      "line": 250917,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n    let app = yield* App, response = yield* exports_Effect.promise(async () => {\n      try {\n        if (!app.sites)\n          return json4({ error: \"Sites is unavailable.\" }, 503);\n        let input;\n        if (method === \"PUT\") {\n          let reader = req.body?.getReader();\n          if (!reader)\n            return json4({ error: \"A variable value is required.\" }, 400);\n          let chunks = [], size9 = 0;\n          while (!0) {\n            let next = await reader.read();\n            if (next.done)\n              break;\n            if (size9 += next.value.byteLength, size9 > 32768)\n              return await reader.cancel(), json4({ error: \"Variable request is too large.\" }, 413);\n            chunks.push(next.value);\n          }\n          input = JSON.parse(Buffer.concat(chunks).toString(\"utf8\"));\n        }\n        return json4(await app.sites.writeSecret(params.siteId, params.environment, params.name, method, input, req.headers.get(\"Idempotency-Key\") ?? \"\"));\n      } catch (error46) {\n        return error46 instanceof SitesClientError ? json4({ error: error46.message }, error46.status) : json4({ error: \"Invalid variable request.\" }, 400);\n      }\n    });\n    return response.headers.set(\"Cache-Control\", \"no-store\"), response;\n  })"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/sites/:siteId/environments/:environment/publication",
+      "line": 250948,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n    let app = yield* App;\n    return yield* exports_Effect.promise(async () => {\n      try {\n        if (!app.sites)\n          return json4({ error: \"Sites is unavailable.\" }, 503);\n        return json4(await app.sites.setPublished(params.siteId, params.environment, method === \"PUT\", req.headers.get(\"Idempotency-Key\") ?? \"\"));\n      } catch (error46) {\n        return error46 instanceof SitesClientError ? json4({ error: error46.message }, error46.status) : json4({ error: \"Invalid publication request.\" }, 400);\n      }\n    });\n  })"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/sites/:siteId/environments/:environment/publication",
+      "line": 250948,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n    let app = yield* App;\n    return yield* exports_Effect.promise(async () => {\n      try {\n        if (!app.sites)\n          return json4({ error: \"Sites is unavailable.\" }, 503);\n        return json4(await app.sites.setPublished(params.siteId, params.environment, method === \"PUT\", req.headers.get(\"Idempotency-Key\") ?? \"\"));\n      } catch (error46) {\n        return error46 instanceof SitesClientError ? json4({ error: error46.message }, error46.status) : json4({ error: \"Invalid publication request.\" }, 400);\n      }\n    });\n  })"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/sites/:siteId",
+      "line": 250963,
+      "handler": "(_req, _url3, params) => exports_Effect.gen(function* () {\n    let app = yield* App;\n    return yield* exports_Effect.promise(async () => {\n      try {\n        if (!app.sites)\n          return json4({ error: \"Sites is unavailable.\" }, 503);\n        let result2 = await app.sites.deleteSite(params.siteId);\n        return json4(result2, result2.deleted ? 200 : 202);\n      } catch (error46) {\n        return error46 instanceof SitesClientError ? json4({ error: error46.message }, error46.status) : json4({ error: \"Invalid site deletion request.\" }, 400);\n      }\n    });\n  })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/appearance/wallpapers",
+      "line": 251118,
+      "handler": "(request4) => exports_Effect.promise(() => upload(request4, directory))"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/appearance/wallpapers/:filename",
+      "line": 251119,
+      "handler": "(_request, url2, params) => exports_Effect.promise(() => download2(url2, params.filename, directory))"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/appearance/usage",
+      "line": 251120,
+      "handler": "() => exports_Effect.gen(function* () {\n        let app = yield* App, counts = app.appearanceUsage ? yield* exports_Effect.promise(() => app.appearanceUsage.usage()) : {};\n        return json4({ counts });\n      })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/attention",
+      "line": 251134,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), state = parseFreebuffAttention(value2.state), windowId = value2.window;\n      if (!state || typeof windowId !== \"string\" || !windowId || windowId.length > MAX_WINDOW_ID_CHARS)\n        return json4({ error: \"bad attention report\" }, 400);\n      return app.attention.report(windowId, state), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/auth/status",
+      "line": 251148,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App, auth3 = app.auth();\n      if (auth3.token)\n        app.refreshAuth().catch(() => {});\n      if (auth3.token && app.sessions.snapshot().accessTier === \"limited\")\n        app.sessions.refreshTier().catch(() => {});\n      return json4({ authed: auth3.token != null, user: auth3.user, login: app.login.state(), sessionRefunds: app.sessions.refundStatus() });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/auth/login/start",
+      "line": 251160,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req).pipe(exports_Effect.orElseSucceed(() => ({}))), surface = asLoginSurface(value2.surface), requested = desktopFunnelPropertiesSchema.shape.attempt_id.safeParse(value2.attemptId), requestedId = requested.success && requested.data ? requested.data : crypto.randomUUID(), pending3 = app.login.start(surface, requestedId), state = app.login.state?.(), attemptId = state?.phase === \"starting\" || state?.phase === \"waiting\" ? state.attemptId : requestedId, loginSurface = state?.phase === \"starting\" || state?.phase === \"waiting\" ? state.surface ?? surface : surface, props = { surface: loginSurface, login_surface: loginSurface, attempt_id: attemptId };\n      try {\n        app.analytics.track(\"desktop.login_started\", props);\n      } catch {}\n      trackDesktopFunnel(app.analytics, \"login\", \"started\", {\n        attempt_id: attemptId,\n        flow_id: attemptId,\n        login_surface: loginSurface,\n        ...state?.phase === \"waiting\" ? { reason: \"reopen\" } : {}\n      });\n      let result2 = yield* exports_Effect.promise(() => pending3);\n      return result2.ok ? json4({ url: result2.launchUrl, attemptId: result2.attemptId ?? attemptId }) : json4({ error: result2.error ?? \"Could not start sign-in.\" }, 502);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/auth/login/cancel",
+      "line": 251178,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (typeof value2.attemptId !== \"string\")\n        return json4({ error: \"attemptId required\" }, 400);\n      let state = app.login.state?.();\n      if (app.login.cancel(value2.attemptId), (state?.phase === \"starting\" || state?.phase === \"waiting\") && state.attemptId === value2.attemptId)\n        trackDesktopFunnel(app.analytics, \"login\", \"cancelled\", {\n          attempt_id: state.attemptId,\n          flow_id: state.attemptId,\n          reason: \"cancel\"\n        });\n      return json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/auth/logout",
+      "line": 251195,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(() => app.logout()), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/auth/login/launch/:token",
+      "line": 251203,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      if (!isAllowedLoopbackHost(req.headers.get(\"host\")))\n        return new Response(\"forbidden\", { status: 403 });\n      let target4 = app.login.resolveLaunchToken(params.token), state = app.login.state?.();\n      if (target4 && state?.phase === \"waiting\")\n        trackDesktopFunnel(app.analytics, \"browser\", \"opened\", {\n          attempt_id: state.attemptId,\n          flow_id: state.attemptId\n        });\n      return target4 ? new Response(null, { status: 302, headers: { location: target4, \"referrer-policy\": \"no-referrer\" } }) : new Response(\"This sign-in link has expired. Start again from the app.\", { status: 410 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/coordinator",
+      "line": 251223,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (typeof value2.projectPath !== \"string\" || !value2.projectPath)\n        return json4({ error: \"projectPath is required\" }, 400);\n      let opened = yield* exports_Effect.promise(() => app.registry.ensure(value2.projectPath));\n      if (!opened.ok)\n        return json4({ error: opened.error }, 400);\n      if (!(yield* exports_Effect.promise(() => allowed(opened.engine))))\n        return json4({ error: PROJECTS_ACCESS_ERROR }, 403);\n      try {\n        let { thread, created } = ensureCoordinator(opened.engine);\n        return json4({ threadId: thread.id, created, thread });\n      } catch (error46) {\n        return json4({ error: error46 instanceof Error ? error46.message : String(error46) }, 409);\n      }\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/coordinator/:id/threads",
+      "line": 251243,
+      "handler": "(_req, _url3, params) => exports_Effect.gen(function* () {\n      let engine = (yield* App).registry.forThread(params.id);\n      if (!engine?.getThread(params.id)?.coordinator)\n        return json4({ error: \"coordinator not found\" }, 404);\n      if (!(yield* exports_Effect.promise(() => allowed(engine))))\n        return json4({ error: PROJECTS_ACCESS_ERROR }, 403);\n      return json4({ digests: coordinatedDigests(engine, params.id) });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/coordinator/:id/resolve",
+      "line": 251255,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), engine = app.registry.forThread(params.id);\n      if (!engine?.getThread(params.id)?.coordinator)\n        return json4({ error: \"coordinator not found\" }, 404);\n      if (!(yield* exports_Effect.promise(() => allowed(engine))))\n        return json4({ error: PROJECTS_ACCESS_ERROR }, 403);\n      let ids3 = value2.threadIds;\n      if (!Array.isArray(ids3) || ids3.length === 0 || ids3.length > MAX_COORDINATED_THREAD_IDS || !ids3.every((id3) => typeof id3 === \"string\" && id3))\n        return json4({ error: \"threadIds must be a non-empty list of thread ids\" }, 400);\n      return json4({\n        receipts: coordinatorPort(engine, params.id).resolve(ids3, value2.resolved !== !1)\n      });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/events",
+      "line": 251319,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App, encoder3 = /* @__PURE__ */ new TextEncoder, unsubscribe = () => {}, heartbeat, stream2 = new ReadableStream({\n        start(controller) {\n          let send = (ev2) => {\n            try {\n              controller.enqueue(encoder3.encode(`data: ${JSON.stringify(ev2)}\n\n`));\n            } catch {\n              cleanup();\n            }\n          }, cleanup = () => {\n            if (unsubscribe(), heartbeat)\n              clearInterval(heartbeat);\n          };\n          for (let ev2 of replayEvents(app))\n            send(ev2);\n          unsubscribe = app.bus.subscribe(send), heartbeat = setInterval(() => {\n            try {\n              controller.enqueue(encoder3.encode(`: ping\n\n`));\n            } catch {\n              cleanup();\n            }\n          }, HEARTBEAT_MS);\n        },\n        cancel() {\n          if (unsubscribe(), heartbeat)\n            clearInterval(heartbeat);\n        }\n      });\n      return new Response(stream2, {\n        headers: {\n          \"content-type\": \"text/event-stream\",\n          \"cache-control\": \"no-cache\",\n          connection: \"keep-alive\"\n        }\n      });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/integrations",
+      "line": 251377,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      if (!app.integrations)\n        return json4({ error: \"Unavailable\" }, 404);\n      return yield* relay(() => app.integrations.overview());\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/integrations/search",
+      "line": 251387,
+      "handler": "(_req, url2) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      if (!app.integrations)\n        return json4({ error: \"Unavailable\" }, 404);\n      let query = url2.searchParams.get(\"q\") ?? \"\";\n      if (query.length > MAX_INTEGRATION_SEARCH_CHARS)\n        return json4({ error: \"Search is too long\" }, 400);\n      return yield* relay(() => app.integrations.search(query));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/integrations/connect",
+      "line": 251400,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      if (!app.integrations)\n        return json4({ error: \"Unavailable\" }, 404);\n      let value2 = yield* body2(req);\n      if (!validIntegrationSlug(value2.app))\n        return json4({ error: \"Invalid app\" }, 400);\n      let slug = value2.app;\n      return yield* relay(() => app.integrations.connect(slug));\n    })"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/integrations/accounts/:id",
+      "line": 251414,
+      "handler": "(_req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      if (!app.integrations)\n        return json4({ error: \"Unavailable\" }, 404);\n      if (!validIntegrationAccountId(params.id))\n        return json4({ error: \"Invalid account\" }, 400);\n      return yield* relay(() => app.integrations.disconnect(params.id));\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/mcp/servers",
+      "line": 251437,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return json4(app.mcp.list());\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/mcp/servers/:serverId/tools",
+      "line": 251445,
+      "handler": "(_req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, tools = yield* attempt2(() => app.mcp.peekTools(idOf(params)));\n      return tools._tag === \"Right\" ? json4(tools.right) : json4({ error: messageOf3(tools.left) }, 502);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/mcp/servers/:serverId/approve-launch",
+      "line": 251453,
+      "handler": "(_req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, tools = yield* attempt2(() => app.mcp.approveLaunchAndDiscover(idOf(params)));\n      if (tools._tag === \"Left\")\n        return json4({ error: messageOf3(tools.left) }, 502);\n      return app.features.track(\"mcp.server_approved\", { stage: \"launch\" }), json4(tools.right);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/mcp/servers/:serverId/approve-tools",
+      "line": 251463,
+      "handler": "(req, url2, params) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), allowed2 = Array.isArray(value2.allowedTools) ? value2.allowedTools.filter((t) => typeof t === \"string\") : null;\n      if (!allowed2)\n        return json4({ error: \"allowedTools must be an array of tool names\" }, 400);\n      let expected = typeof value2.manifestHash === \"string\" ? value2.manifestHash : void 0, done7 = yield* attempt2(() => app.mcp.approveTools(idOf(params), allowed2, expected));\n      if (done7._tag === \"Left\")\n        return json4({ error: messageOf3(done7.left) }, 502);\n      return app.features.track(\"mcp.tools_allowlisted\"), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/mcp/servers/:serverId/enable",
+      "line": 251476,
+      "handler": "(req, url2, params) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (typeof value2.enabled !== \"boolean\")\n        return json4({ error: \"enabled must be a boolean\" }, 400);\n      let done7 = yield* attempt2(() => app.mcp.setEnabled(idOf(params), value2.enabled));\n      if (done7._tag === \"Left\")\n        return json4({ error: messageOf3(done7.left) }, 502);\n      return app.features.track(\"mcp.server_enabled_set\", { on: value2.enabled }), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/mcp/servers",
+      "line": 251489,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, entries2 = (yield* body2(req)).entries;\n      if (!entries2 || typeof entries2 !== \"object\" || Array.isArray(entries2))\n        return json4({ error: \"entries must be an object of name \\u2192 server\" }, 400);\n      let done7 = yield* attemptSync(() => app.mcp.addServers(entries2));\n      if (done7._tag === \"Left\")\n        return json4({ error: messageOf3(done7.left) }, 400);\n      return app.features.track(\"mcp.servers_added\", {\n        count: countBucket(Object.keys(entries2).length)\n      }), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/mcp/servers/:serverId/connection",
+      "line": 251504,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), edit = mcpConnectionEditSchema.safeParse(value2.connection);\n      if (!edit.success || typeof value2.launchHash !== \"string\")\n        return json4({ error: \"A valid connection and its launchHash are required.\" }, 400);\n      let done7 = yield* attempt2(() => app.mcp.updateConnection(idOf(params), value2.launchHash, edit.data));\n      return done7._tag === \"Right\" ? json4({ ok: !0 }) : json4({ error: messageOf3(done7.left) }, 400);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/mcp/servers/:serverId/remove",
+      "line": 251515,
+      "handler": "(_req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, done7 = yield* attempt2(() => app.mcp.removeServer(idOf(params)));\n      if (done7._tag === \"Left\")\n        return json4({ error: messageOf3(done7.left) }, 400);\n      return app.features.track(\"mcp.server_removed\"), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/mcp/servers/:serverId/sign-in",
+      "line": 251525,
+      "handler": "(_req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, done7 = yield* attempt2(() => app.mcp.signIn(idOf(params)));\n      if (done7._tag === \"Left\")\n        return json4({ error: messageOf3(done7.left) }, 502);\n      return app.features.track(\"mcp.sign_in_started\"), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/mcp/reload",
+      "line": 251535,
+      "handler": "() => exports_Effect.gen(function* () {\n      return (yield* App).mcp.reload(), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/invitation/click",
+      "line": 251807,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (typeof value2.threadId !== \"string\" || typeof value2.invitationId !== \"string\")\n        return json4({ status: \"unavailable\" });\n      let engine = app.registry.forThread(value2.threadId);\n      if (!engine || !app.ads.fundInvitationClick)\n        return json4({ status: \"unavailable\" });\n      let invitation = app.ads.invitationForInteraction?.(value2.invitationId, value2.threadId, engine.root);\n      if (!invitation || invitation.kind !== \"supabase_setup\" || invitation.schemaVersion !== 3)\n        return json4({ status: \"unavailable\" });\n      let result2 = yield* exports_Effect.tryPromise(() => app.ads.fundInvitationClick(value2.invitationId, value2.threadId, engine.root)).pipe(exports_Effect.catchAll(() => exports_Effect.succeed({ status: \"unavailable\" })));\n      if (result2.status !== \"funded\")\n        return json4(result2);\n      let attemptId = randomUUID23();\n      try {\n        app.ads.recordInvitationEvent?.(invitation.invitationId, value2.threadId, engine.root, { event: \"clicked\", attemptId }), app.logShipper.ship({\n          level: \"info\",\n          message: \"Supabase invitation first CTA funded\",\n          data: {\n            metric: \"ads.supabase_setup_invitation_clicked\",\n            invitation_id: invitation.invitationId,\n            attempt_id: attemptId,\n            invitation_version: invitation.schemaVersion,\n            experiment_version: invitation.experimentVersion,\n            framework: invitation.framework,\n            surface: invitation.surface,\n            angle: invitation.angle\n          }\n        });\n      } catch {}\n      return json4(result2);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/slot",
+      "line": 251844,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), threadId = typeof value2.threadId === \"string\" ? value2.threadId : null, engine = threadId ? app.registry.forThread(threadId) : null, recent = engine && threadId ? engine.recentMessageTexts(threadId, 6) : [], showcase = value2.showcase === !0 && (yield* exports_Effect.promise(() => app.ads.policy())).showcaseArm === \"showcase\", dismissedKeys = Array.isArray(value2.dismissedKeys) ? value2.dismissedKeys.filter((entry2) => typeof entry2 === \"string\").slice(0, MAX_DISMISSED_KEYS) : void 0, clientContext = rendererAdClientContext(app, threadId, value2.clientContext);\n      return json4(yield* exports_Effect.promise(() => app.ads.slotAd(threadId, recent, {\n        showcase,\n        dismissedKeys,\n        ...clientContext ? { clientContext } : {}\n      })));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/intermission",
+      "line": 251856,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), threadId = typeof value2.threadId === \"string\" ? value2.threadId : null, engine = threadId ? app.registry.forThread(threadId) : null, recent = engine && threadId ? engine.recentMessageTexts(threadId, 6) : [], ad2 = yield* exports_Effect.promise(() => app.ads.intermissionAd(threadId, recent, void 0, rendererAdClientContext(app, threadId, value2.clientContext)));\n      return json4({ ad: ad2 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/break",
+      "line": 251864,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), threadId = typeof value2.threadId === \"string\" ? value2.threadId : null, placementId = typeof value2.placementId === \"string\" ? value2.placementId : \"\";\n      if (!threadId || !placementId)\n        return json4({ ad: null });\n      if (!(yield* exports_Effect.promise(() => app.ads.policy())).breakPlacementIds.includes(placementId))\n        return json4({ ad: null });\n      let engine = app.registry.forThread(threadId), recent = engine ? engine.recentMessageTexts(threadId, 6) : [], ad2 = yield* exports_Effect.promise(() => app.ads.breakAd(placementId, threadId, recent, void 0, rendererAdClientContext(app, threadId, value2.clientContext)));\n      return json4({ ad: ad2 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/partner",
+      "line": 251877,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), threadId = typeof value2.threadId === \"string\" ? value2.threadId : null, placementId = typeof value2.placementId === \"string\" ? value2.placementId : \"\";\n      if (!threadId || !placementId)\n        return json4({ ad: null });\n      let engine = app.registry.forThread(threadId), recent = engine ? engine.recentMessageTexts(threadId, 6) : [], ad2 = yield* exports_Effect.promise(() => app.ads.partnerAd(placementId, threadId, recent, void 0, rendererAdClientContext(app, threadId, value2.clientContext)));\n      return json4({ ad: ad2 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/intent",
+      "line": 251888,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), threadId = typeof value2.threadId === \"string\" ? value2.threadId : null, draft = typeof value2.draft === \"string\" ? value2.draft : \"\";\n      if (!threadId || !draft.trim())\n        return json4({ ad: null });\n      let engine = app.registry.forThread(threadId), recent = engine ? engine.recentMessageTexts(threadId, 6) : [], ad2 = yield* exports_Effect.promise(() => app.ads.intentAd(threadId, draft, recent, void 0, rendererAdClientContext(app, threadId, value2.clientContext)));\n      return json4({ ad: ad2 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/billboard",
+      "line": 251899,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), threadId = typeof value2.threadId === \"string\" ? value2.threadId : null, placementId = typeof value2.placementId === \"string\" ? value2.placementId : \"\";\n      if (!placementId)\n        return json4({ ad: null });\n      let engine = threadId ? app.registry.forThread(threadId) : null, recent = engine && threadId ? engine.recentMessageTexts(threadId, 6) : [];\n      return json4(yield* exports_Effect.promise(() => app.ads.billboardAd(placementId, threadId, recent, void 0, rendererAdClientContext(app, threadId, value2.clientContext)).then((ad2) => ({ ad: ad2 }), () => ({ ad: null, failed: !0 }))));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/display",
+      "line": 251910,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), threadId = typeof value2.threadId === \"string\" ? value2.threadId : null, placementId = typeof value2.placementId === \"string\" ? value2.placementId : \"\";\n      if (!placementId)\n        return json4({ ad: null });\n      let engine = threadId ? app.registry.forThread(threadId) : null, recent = engine && threadId ? engine.recentMessageTexts(threadId, 6) : [], ad2 = yield* exports_Effect.promise(() => app.ads.displayAd(placementId, threadId, recent, void 0, rendererAdClientContext(app, threadId, value2.clientContext)).catch(() => null));\n      return json4({ ad: ad2 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/policy",
+      "line": 251921,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return json4(yield* exports_Effect.promise(() => app.ads.policy()));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/break-event",
+      "line": 251929,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), event = value2.event;\n      if (event === \"ads.showcase_presented\" /* ADS_SHOWCASE_PRESENTED */) {\n        let data = showcasePresentationData(value2);\n        if (!data)\n          return json4({ error: \"invalid showcase presentation\" }, 400);\n        let authoritative = app.ads.resolveShowcaseExperiment(value2.showcaseExperiment);\n        if (!authoritative)\n          return json4({ ok: !0 });\n        return data.gravity_showcase_version = authoritative.version, data.gravity_showcase_config_id = authoritative.configId, data.gravity_showcase_arm = authoritative.arm, data.gravity_showcase_attempt_id = authoritative.attemptId, data.gravity_showcase_opportunity_id = authoritative.opportunityId, app.logShipper.ship({\n          level: \"info\",\n          event,\n          message: \"Showcase presented\",\n          data\n        }), json4({ ok: !0 });\n      }\n      if (!isSponsorBreakEvent(event))\n        return json4({ error: \"unknown break event\" }, 400);\n      let policy = yield* exports_Effect.promise(() => app.ads.policy());\n      return app.logShipper.ship({\n        level: \"info\",\n        event,\n        message: \"Sponsor break\",\n        data: buildSponsorBreakEvent({\n          placementId: typeof value2.placementId === \"string\" ? value2.placementId : \"\",\n          surface: \"cli_chat\",\n          format: typeof value2.format === \"string\" ? value2.format : \"\",\n          arm: policy.arm,\n          method: value2.method,\n          dwellMs: value2.dwellMs,\n          timerMs: value2.timerMs,\n          timerCompleted: value2.timerCompleted,\n          dismissLockMs: value2.dismissLockMs,\n          lockCompleted: value2.lockCompleted,\n          clientEventId: value2.clientEventId,\n          clientFamily: \"desktop\",\n          ...event === ADS_BREAK_SHOWN_EVENT ? { trigger: \"turn_completed\" } : {}\n        })\n      }), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/report",
+      "line": 251973,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), result2 = yield* exports_Effect.promise(() => submitAdReport(value2, app.auth().token));\n      return json4(result2.body, result2.status);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/impression",
+      "line": 251981,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), impUrl = value2.impUrl;\n      if (typeof impUrl !== \"string\")\n        return json4({ error: \"impUrl required\" }, 400);\n      let ok2 = yield* exports_Effect.promise(() => app.ads.impression(impUrl, typeof value2.provider === \"string\" ? value2.provider : void 0, typeof value2.surface === \"string\" ? value2.surface : void 0, typeof value2.placementId === \"string\" ? value2.placementId : void 0, (observation) => {\n        let telemetry = createFirstPartyViewAckTelemetry(observation);\n        if (!telemetry)\n          return;\n        app.logShipper.ship({\n          level: \"info\",\n          event: \"ads.first_party_view_ack\" /* ADS_FIRST_PARTY_VIEW_ACK */,\n          message: \"First-party view acknowledgement\",\n          data: telemetry\n        });\n      }, typeof value2.renderDelayMs === \"number\" && Number.isFinite(value2.renderDelayMs) ? value2.renderDelayMs : void 0));\n      try {\n        if (ok2)\n          app.analytics.track(\"desktop.ad_shown\");\n      } catch {}\n      return json4({ ok: ok2 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/invitation/displayed",
+      "line": 252006,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (typeof value2.invitationId !== \"string\")\n        return json4({ error: \"invitationId required\" }, 400);\n      let invitation = app.ads.invitationDisplayed?.(value2.invitationId);\n      if (invitation)\n        app.logShipper.ship({\n          level: \"info\",\n          message: invitation.kind === \"generic_setup\" ? \"Generic setup invitation displayed\" : \"Supabase setup invitation displayed\",\n          data: {\n            metric: invitation.kind === \"generic_setup\" ? \"ads.generic_agentic_invitation_displayed\" : \"ads.supabase_setup_invitation_displayed\",\n            invitation_id: invitation.invitationId,\n            campaign_id: invitation.kind === \"generic_setup\" ? invitation.campaignId : void 0,\n            framework: invitation.framework,\n            surface: invitation.surface,\n            ...invitation.kind === \"supabase_setup\" ? { angle: invitation.angle } : {\n              policy_version: invitation.policyVersion,\n              decision_id: invitation.decisionId\n            }\n          }\n        });\n      return json4({ ok: Boolean(invitation) });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/invitation/recheck",
+      "line": 252033,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (typeof value2.threadId !== \"string\" || typeof value2.invitationId !== \"string\")\n        return json4({ error: \"threadId and invitationId required\" }, 400);\n      let engine = app.registry.forThread(value2.threadId);\n      if (!engine || !app.ads.recheckInvitation)\n        return json4({ status: \"unavailable\" });\n      let invitation = app.ads.invitationForInteraction?.(value2.invitationId, value2.threadId, engine.root), attemptId = randomUUID23();\n      if (invitation?.kind === \"generic_setup\" && value2.interactionSource !== \"git_continuation\")\n        try {\n          app.logShipper.ship({\n            level: \"info\",\n            message: \"Generic invitation first CTA\",\n            data: {\n              metric: \"ads.generic_agentic_invitation_clicked\",\n              invitation_id: invitation.invitationId,\n              attempt_id: attemptId,\n              invitation_version: invitation.schemaVersion,\n              campaign_id: invitation.campaignId,\n              policy_version: invitation.policyVersion,\n              decision_id: invitation.decisionId,\n              framework: invitation.framework,\n              surface: invitation.surface\n            }\n          });\n        } catch {}\n      let report = (metric, details = {}) => {\n        if (!invitation)\n          return;\n        try {\n          app.logShipper.ship({\n            level: \"info\",\n            message: invitation.kind === \"generic_setup\" ? \"Generic invitation interaction\" : \"Supabase invitation interaction\",\n            data: {\n              metric,\n              invitation_id: invitation.invitationId,\n              attempt_id: attemptId,\n              invitation_version: invitation.schemaVersion,\n              framework: invitation.framework,\n              surface: invitation.surface,\n              ...invitation.kind === \"supabase_setup\" ? { angle: invitation.angle } : {\n                campaign_id: invitation.campaignId,\n                policy_version: invitation.policyVersion,\n                decision_id: invitation.decisionId\n              },\n              ...details\n            }\n          });\n        } catch {}\n      };\n      return yield* exports_Effect.tryPromise(async () => {\n        let threadId = value2.threadId, result2 = await app.ads.recheckInvitation(value2.invitationId, threadId, engine.root, engine.recentMessageTexts(threadId, 6), req.signal, value2.clientContext !== void 0 ? rendererAdClientContext(app, threadId, value2.clientContext) : inlineAdClientContext(app, threadId));\n        if (result2.status !== \"checked\") {\n          try {\n            app.ads.recordInvitationEvent?.(value2.invitationId, value2.threadId, engine.root, {\n              event: \"compatibility_blocked\",\n              attemptId,\n              ...result2.compatibilityReason === \"no_git_repository\" ? { reason: \"no_repository\" } : result2.compatibilityReason === \"no_committed_head\" ? { reason: \"unborn_repository\" } : result2.compatibilityReason === \"enclosing_repository\" ? { reason: \"enclosing_repository\" } : result2.compatibilityReason === \"git_unavailable\" ? { reason: \"git_unavailable\" } : {\n                reason: result2.compatibilityReason === \"inspection_failed\" ? \"inspection_failed\" : \"other_incompatibility\"\n              }\n            });\n          } catch {}\n          return report(invitation?.kind === \"generic_setup\" ? \"ads.generic_agentic_invitation_recheck\" : \"ads.supabase_setup_invitation_recheck\", {\n            outcome: result2.status,\n            ...result2.compatibilityReason ? { reason: result2.compatibilityReason } : {},\n            ...result2.invitation ? { next_invitation_id: result2.invitation.invitationId } : {}\n          }), json4(result2);\n        }\n        if (!invitation)\n          return json4({ status: \"unavailable\" });\n        let proposal = await app.proposals.read(engine.root, {\n          expectedCampaignId: invitation.kind === \"generic_setup\" ? invitation.campaignId : SUPABASE_FORMAT_DATABASE_PAIR.agenticCampaignId,\n          conversationId: value2.threadId\n        }), status = proposal.availability === \"present\" ? \"ready\" : \"unavailable\", unavailableReason = status === \"unavailable\" ? result2.unavailableReason : void 0;\n        try {\n          if (app.ads.recordInvitationEvent?.(value2.invitationId, value2.threadId, engine.root, {\n            event: status === \"ready\" ? \"compatibility_ready\" : \"compatibility_blocked\",\n            attemptId,\n            ...status === \"ready\" ? {} : {\n              reason: unavailableReason ? \"other_incompatibility\" : \"inspection_failed\"\n            }\n          }), proposal.availability === \"present\")\n            app.ads.recordInvitationEvent?.(value2.invitationId, value2.threadId, engine.root, {\n              event: \"proposal_linked\",\n              attemptId,\n              proposalId: proposal.proposal._id\n            });\n        } catch {}\n        return report(invitation?.kind === \"generic_setup\" ? \"ads.generic_agentic_invitation_recheck\" : \"ads.supabase_setup_invitation_recheck\", {\n          outcome: status,\n          ...proposal.availability === \"present\" ? { proposal_id: proposal.proposal._id } : {},\n          ...unavailableReason ? { reason: unavailableReason } : {}\n        }), json4(unavailableReason ? { status, compatibilityReason: unavailableReason } : { status });\n      }).pipe(exports_Effect.catchAll(() => {\n        try {\n          app.ads.recordInvitationEvent?.(value2.invitationId, value2.threadId, engine.root, {\n            event: \"compatibility_blocked\",\n            attemptId,\n            reason: \"inspection_failed\"\n          });\n        } catch {}\n        return report(invitation?.kind === \"generic_setup\" ? \"ads.generic_agentic_invitation_recheck\" : \"ads.supabase_setup_invitation_recheck\", {\n          outcome: \"error\"\n        }), exports_Effect.succeed(json4({ status: \"unavailable\" }));\n      }));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/proposal",
+      "line": 252143,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), threadId = typeof value2.threadId === \"string\" ? value2.threadId : null, engine = threadId ? app.registry.forThread(threadId) : null;\n      if (!engine)\n        return json4(NO_PROPOSAL);\n      let repo = yield* exports_Effect.promise(() => app.proposals.targetKey ? app.proposals.targetKey(engine.root) : app.proposals.repoFullName(engine.root));\n      if (!repo)\n        return json4(NO_PROPOSAL);\n      let read3 = yield* exports_Effect.promise(() => app.proposals.read(engine.root)), proposal = read3.proposal;\n      return json4({\n        repo,\n        availability: read3.availability,\n        proposal,\n        execution: app.sponsoredRuns.availability(proposal),\n        runThreadId: proposal ? app.sponsoredRuns.runThreadId(String(proposal._id ?? \"\")) : null,\n        ...(() => {\n          let connect2 = proposal ? app.sponsoredRuns.pendingConnect?.(String(proposal._id ?? \"\")) ?? null : null;\n          return connect2 ? { connect: connect2 } : {};\n        })(),\n        ...(() => {\n          let environmentWarning = proposal ? app.ads?.environmentWarning?.(String(proposal._id ?? \"\")) ?? null : null;\n          return environmentWarning ? { environmentWarning } : {};\n        })(),\n        ...(() => {\n          let id3 = proposal ? String(proposal._id ?? \"\") : \"\", behindTurn = id3 ? app.sponsoredRuns.runQueuedBehindTurn?.(id3) ?? !1 : !1;\n          return {\n            runQueued: id3 ? app.sponsoredRuns.runInputQueued?.(id3) ?? behindTurn : !1,\n            runQueuedBehindTurn: behindTurn,\n            runHold: id3 ? app.sponsoredRuns.runQueueHold?.(id3) ?? null : null\n          };\n        })(),\n        logoSrc: absoluteLogoSrc(proposal?.advertiser_logo_token)\n      });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/proposal/:id/:action",
+      "line": 252180,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (params.action === \"dismiss\")\n        return proposalWrite(yield* exports_Effect.promise(() => app.proposals.dismiss(params.id)));\n      if (params.action === \"cancel\") {\n        let cancelled = yield* exports_Effect.promise(() => (app.sponsoredRuns.cancelQueuedRun?.(params.id) ?? Promise.resolve(!1)).catch(() => !1)), dismissed = yield* exports_Effect.promise(() => app.proposals.dismiss(params.id));\n        if (!dismissed.ok)\n          return proposalWrite(dismissed);\n        return json4({ ok: !0, cancelled });\n      }\n      if (params.action === \"report\")\n        return proposalWrite(yield* exports_Effect.promise(() => app.proposals.report(params.id, typeof value2.reason === \"string\" ? value2.reason : void 0)));\n      if (params.action === \"display\")\n        return proposalWrite(yield* exports_Effect.promise(() => app.proposals.display(params.id)));\n      if (params.action === \"accept\") {\n        let threadId = typeof value2.threadId === \"string\" ? value2.threadId : null;\n        if (!threadId)\n          return json4({ error: \"threadId required\" }, 400);\n        let result2 = yield* exports_Effect.promise(() => app.sponsoredRuns.accept(threadId, params.id));\n        if (result2.ok)\n          return app.features.track(\"proposal.accepted\", {\n            ...result2.containment ? { containment: result2.containment } : {},\n            ...result2.connect ? { credentialsDeclared: result2.connect.credentials.length } : {},\n            background: result2.background === !0\n          }), json4({\n            ok: !0,\n            threadId: result2.threadId,\n            inPlace: result2.inPlace,\n            ...result2.background ? { background: !0 } : {},\n            ...result2.connect ? { connect: result2.connect } : {}\n          });\n        if (result2.declined)\n          return app.features.track(\"proposal.consent_declined\"), json4({ ok: !1, declined: !0 });\n        if (result2.code?.startsWith(\"consent_\"))\n          app.features.track(\"proposal.consent_unanswered\", {\n            kind: result2.code.slice(8)\n          });\n        return json4({\n          error: result2.message,\n          ...result2.code ? { code: result2.code } : {},\n          ...result2.permanent ? { permanent: !0 } : {}\n        }, statusOf(result2.status));\n      }\n      if (params.action === \"connect\") {\n        if (!app.sponsoredRuns.connect)\n          return json4({ error: \"The account step is not available.\" }, 409);\n        let values3 = value2.values && typeof value2.values === \"object\" && !Array.isArray(value2.values) ? value2.values : void 0, result2 = yield* exports_Effect.promise(() => app.sponsoredRuns.connect(params.id, {\n          ...values3 ? { values: values3 } : {},\n          ...value2.skip === !0 ? { skip: !0 } : {},\n          ...value2.open === !0 ? { open: !0 } : {},\n          ...value2.accountReady === !0 ? { accountReady: !0 } : {}\n        }));\n        if (!result2.ok)\n          return json4({\n            error: result2.message,\n            ...result2.code ? { code: result2.code } : {}\n          }, statusOf(result2.status));\n        return json4({\n          ok: !0,\n          status: result2.status,\n          ...result2.status === \"opened\" ? { connect: result2.connect } : {}\n        });\n      }\n      if (params.action === \"pull-request\") {\n        let result2 = yield* exports_Effect.promise(() => app.sponsoredRuns.createPullRequest(params.id));\n        if (!result2.ok)\n          return json4({\n            error: result2.message,\n            ...result2.compareUrl ? { compareUrl: result2.compareUrl } : {}\n          }, 409);\n        return app.features.track(\"proposal.pull_request_created\", {\n          recorded: result2.recorded\n        }), json4({\n          ok: !0,\n          prUrl: result2.prUrl,\n          recorded: result2.recorded,\n          ...result2.state ? { state: result2.state } : {}\n        });\n      }\n      if (params.action === \"remove-worktree\") {\n        let result2 = yield* exports_Effect.promise(() => app.sponsoredRuns.removeWorktree(params.id));\n        if (!result2.ok)\n          return json4({ error: result2.message }, 409);\n        return app.features.track(\"proposal.worktree_removed\"), json4({ ok: !0 });\n      }\n      if (params.action === \"verify-again\") {\n        if (!app.sponsoredRuns.recheckVerification)\n          return json4({ error: \"Verification is not available.\" }, 409);\n        let result2 = yield* exports_Effect.promise(() => app.sponsoredRuns.recheckVerification(params.id));\n        if (!result2.ok)\n          return json4({ error: result2.message }, statusOf(result2.status));\n        return app.features.track(\"proposal.verification_rechecked\"), json4({ ok: !0 });\n      }\n      return json4({ error: \"unknown proposal action\" }, 404);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/proposal-prefs",
+      "line": 252279,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), never5 = typeof value2.neverAdvertiserId === \"string\" && value2.neverAdvertiserId ? value2.neverAdvertiserId : null, optedOut = typeof value2.optedOut === \"boolean\" ? value2.optedOut : null;\n      if (never5 === null === (optedOut === null))\n        return json4({ error: \"expected exactly one of neverAdvertiserId or optedOut\" }, 400);\n      return proposalWrite(yield* exports_Effect.promise(() => app.proposals.prefs(never5 !== null ? { neverAdvertiserId: never5 } : { optedOut })));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/click",
+      "line": 252289,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), impUrl = value2.impUrl;\n      if (typeof impUrl !== \"string\")\n        return json4({ error: \"impUrl required\" }, 400);\n      let dwellMs = typeof value2.dwellMs === \"number\" && Number.isFinite(value2.dwellMs) ? value2.dwellMs : void 0;\n      try {\n        app.ads.noteAdClick?.(impUrl);\n      } catch {}\n      let ok2 = yield* exports_Effect.promise(() => app.ads.click(impUrl, dwellMs));\n      try {\n        if (ok2)\n          app.analytics.track(\"desktop.ad_clicked\");\n      } catch {}\n      return json4({ ok: ok2 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/engagement",
+      "line": 252308,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), report = parseAdEngagement(value2);\n      if (!report)\n        return json4({ error: \"invalid engagement record\" }, 400);\n      let ok2 = yield* exports_Effect.promise(async () => {\n        try {\n          return await app.ads.engagement?.(report) ?? !1;\n        } catch {\n          return !1;\n        }\n      });\n      return json4({ ok: ok2 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/ad/click-return",
+      "line": 252325,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), impUrl = value2.impUrl;\n      if (typeof impUrl !== \"string\")\n        return json4({ error: \"impUrl required\" }, 400);\n      let ok2 = yield* exports_Effect.promise(() => app.ads.clickReturn(impUrl, value2));\n      return json4({ ok: ok2 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/freebuff/prices/recheck",
+      "line": 252640,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App, ran = app.auth().token != null && takePriceRecheck();\n      if (ran)\n        app.sessions.refreshTier().catch(() => {});\n      return json4({ ran });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/account/usage",
+      "line": 252652,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return json4({ usage: yield* exports_Effect.promise(() => app.account.usage()) });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/streak",
+      "line": 252660,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App, data = yield* exports_Effect.promise(() => app.streak.fetch()), line = data ? getFreebuffStreakLine(data.streak) : null, streak = {\n        line,\n        restartLine: data && !line ? {\n          label: \"Start your streak\",\n          progress: {\n            filled: 0,\n            total: FREEBUFF_STREAK_WEEK,\n            beyond: !1\n          }\n        } : null,\n        bonusNote: {\n          full: data ? getFreebuffStreakBonusNote({\n            streak: data.streak,\n            accessTier: \"full\",\n            freebucksDailyBonus: data.freebucksDailyBonus\n          }) : null,\n          limited: data ? getFreebuffStreakBonusNote({\n            streak: data.streak,\n            accessTier: \"limited\",\n            freebucksDailyBonus: data.freebucksDailyBonus\n          }) : null\n        },\n        dashboardUrl: `${AUTH_HOST}/account`\n      };\n      return json4(streak);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/elevation/:requestId",
+      "line": 252691,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (typeof value2.approved !== \"boolean\")\n        return json4({ error: \"approved must be a boolean\" }, 400);\n      if (!app.elevation.decide(params.requestId, value2.approved))\n        return json4({ error: \"unknown request\" }, 404);\n      return app.features.track(\"elevation.decided\", { approved: value2.approved }), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/question/:requestId",
+      "line": 252703,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (value2.dismiss === !0) {\n        if (!app.questions.dismiss(params.requestId))\n          return json4({ error: \"unknown request\" }, 404);\n        return app.features.track(\"question.dismissed\"), json4({ ok: !0 });\n      }\n      if (!Array.isArray(value2.answers))\n        return json4({ error: \"answers must be an array\" }, 400);\n      if (!(yield* exports_Effect.tryPromise({\n        try: () => app.questions.answer(params.requestId, value2.answers),\n        catch: (error46) => error46 instanceof Conflict || error46 instanceof Invalid || error46 instanceof NotFound || error46 instanceof TooLong || error46 instanceof Internal ? error46 : new Internal({ message: String(error46) })\n      })))\n        return json4({ error: \"unknown request\" }, 404);\n      return app.features.track(\"question.answered\"), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/cli/codex/update",
+      "line": 252723,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return json4(yield* exports_Effect.promise(() => app.updateCodex()));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/cli/claude/install",
+      "line": 252731,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return json4(yield* exports_Effect.promise(() => app.installClaudeRuntime()));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/cli/codex/install",
+      "line": 252739,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return json4(yield* exports_Effect.promise(() => app.installCodexRuntime()));\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/setup/bash",
+      "line": 252747,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return json4(app.bashSetup());\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/setup/cli/recheck",
+      "line": 252755,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (value2.id !== \"claude-code\" && value2.id !== \"codex\")\n        return json4({ error: \"invalid local CLI id\" }, 400);\n      return app.recheckLocalCli(value2.id), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/feedback",
+      "line": 252766,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), result2 = yield* exports_Effect.promise(() => app.feedback.submit(value2, app.auth().token));\n      if (result2.status === 401)\n        yield* exports_Effect.promise(() => app.logout());\n      if (result2.status < 400)\n        app.features.track(\"feedback.submitted\", {\n          kind: value2.type === \"message\" ? \"message\" : \"general\"\n        });\n      return app.logShipper.ship(feedbackLogRow(value2, result2.status)), json4(result2.body, result2.status);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/app/restarting-for-update",
+      "line": 252780,
+      "handler": "() => exports_Effect.gen(function* () {\n      return (yield* App).sessions.holdForRestart(), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/diagnostics/renderer-error",
+      "line": 252787,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), report = normalizeRendererError(value2);\n      if (!report)\n        return json4({ error: \"invalid report\" }, 400);\n      if (isNonFaultRendererError(report))\n        return json4({ ok: !0 }, 202);\n      return yield* exports_Effect.promise(() => shipRendererError(app.logShipper, report, app.stateFile.analyticsId())), json4({ ok: !0 }, 202);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/diagnostics/renderer-health",
+      "line": 252799,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, report = normalizeRendererHealth(yield* body2(req));\n      if (!report)\n        return json4({ error: \"invalid report\" }, 400);\n      return app.logShipper.ship({\n        level: \"info\",\n        event: \"desktop.renderer_health\",\n        message: \"renderer memory sample\",\n        client_session_id: app.stateFile.analyticsId(),\n        data: {\n          ...report,\n          surface: \"desktop\",\n          platform: process.platform,\n          arch: process.arch,\n          version: process.env.FREEBUFF_APP_VERSION ?? null\n        }\n      }), json4({ ok: !0 }, 202);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/diagnostics/renderer-boot",
+      "line": 252821,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, report = normalizeRendererBoot(yield* body2(req));\n      if (!report)\n        return json4({ error: \"invalid report\" }, 400);\n      return shipRendererBoot(app.logShipper, report, app.stateFile.analyticsId()), json4({ ok: !0 }, 202);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/diagnostics/sign-in-return",
+      "line": 252831,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, { returnedMs } = yield* body2(req);\n      if (typeof returnedMs !== \"number\" || !Number.isFinite(returnedMs) || returnedMs < 0)\n        return json4({ error: \"invalid report\" }, 400);\n      return app.logShipper.ship({\n        level: \"info\",\n        event: \"desktop.sign_in_returned\",\n        message: \"main window in front after sign-in\",\n        client_session_id: app.stateFile.analyticsId(),\n        data: {\n          returnedMs: Math.round(returnedMs),\n          surface: \"desktop\",\n          platform: process.platform,\n          version: process.env.FREEBUFF_APP_VERSION ?? null\n        }\n      }), json4({ ok: !0 }, 202);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/diagnostics/toast",
+      "line": 252852,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), report = normalizeToastError(value2);\n      if (!report)\n        return json4({ error: \"invalid report\" }, 400);\n      return yield* exports_Effect.promise(() => shipToastError(app.logShipper, report, app.stateFile.analyticsId())), json4({ ok: !0 }, 202);\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/onboarding",
+      "line": 252866,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return json4(yield* exports_Effect.promise(() => app.onboarding.prompt()));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/onboarding",
+      "line": 252874,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (!Array.isArray(value2.answers) || value2.answers.length > MAX_ANSWERS)\n        return json4({ error: \"answers must be a list\" }, 400);\n      if (typeof value2.final !== \"boolean\")\n        return json4({ error: \"final must be a boolean\" }, 400);\n      let result2 = yield* exports_Effect.promise(() => app.onboarding.submit({ answers: value2.answers, final: value2.final }));\n      if (result2.ok)\n        return json4({ ok: !0 });\n      return json4({ error: result2.message }, result2.status >= 400 && result2.status < 500 ? result2.status : 502);\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/profile-survey",
+      "line": 252897,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      if (!app.profileSurvey || !app.auth().token)\n        return json4({ show: !1, reason: \"signed_out\" });\n      let result2 = yield* exports_Effect.promise(() => app.profileSurvey.get(\"/api/profile-survey\"));\n      if (!result2.ok && result2.status === 401)\n        return json4({ show: !1, reason: \"signed_out\" });\n      return relay2(result2);\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/profile-survey/answers",
+      "line": 252910,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      if (!app.profileSurvey)\n        return json4({ ok: !1, error: \"Unavailable.\" }, 404);\n      return relay2(yield* exports_Effect.promise(() => app.profileSurvey.get(\"/api/profile-survey/answers\")));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/profile-survey",
+      "line": 252920,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      if (!app.profileSurvey)\n        return json4({ ok: !1, error: \"Unavailable.\" }, 404);\n      let value2 = yield* body2(req);\n      if (typeof value2.action !== \"string\" || !ACTIONS.has(value2.action))\n        return json4({ ok: !1, error: \"unknown action\" }, 400);\n      if (value2.optionIds !== void 0 && (!Array.isArray(value2.optionIds) || value2.optionIds.length > MAX_OPTION_IDS))\n        return json4({ ok: !1, error: \"optionIds must be a short list\" }, 400);\n      let result2 = yield* exports_Effect.promise(() => app.profileSurvey.post(value2)), reply = result2.ok ? result2.body : null;\n      if (typeof reply?.rewardedFreebucks === \"number\" && reply.rewardedFreebucks > 0)\n        app.sessions.refreshTier().catch(() => {});\n      return relay2(result2);\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/codebase-sales",
+      "line": 252969,
+      "handler": "(_req, url2) => exports_Effect.gen(function* () {\n      let app = yield* App, threadId = url2.searchParams.get(\"threadId\");\n      if (!app.codebaseSales || !app.auth().token)\n        return json4({\n          availability: \"unavailable\",\n          reason: \"signed_out\",\n          submissions: []\n        });\n      let owner = threadId && short(threadId) ? app.registry.forThread(threadId) : null;\n      if (!owner)\n        return json4({\n          availability: \"unavailable\",\n          reason: \"physical_git_required\",\n          submissions: []\n        });\n      return relay3(yield* exports_Effect.promise(() => app.codebaseSales.get(owner.root)));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/codebase-sales",
+      "line": 252990,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      if (!app.codebaseSales || !app.auth().token)\n        return json4({ ok: !1, error: \"Sign in to contribute.\" }, 401);\n      let value2 = yield* body2(req), parsed = request4(value2);\n      if (!parsed)\n        return json4({ ok: !1, error: \"Invalid contribution request.\" }, 400);\n      let owner = short(value2.threadId) ? app.registry.forThread(value2.threadId) : null;\n      if (parsed.action !== \"withdraw\" && !owner)\n        return json4({ ok: !1, error: \"Open the repository before accepting.\" }, 409);\n      return relay3(yield* exports_Effect.promise(() => app.codebaseSales.post(owner?.root ?? null, parsed)));\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/sponsored-survey",
+      "line": 253030,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      if (!app.sponsoredSurvey || !app.auth().token)\n        return json4({ show: !1 });\n      let result2 = yield* exports_Effect.promise(() => app.sponsoredSurvey.get());\n      return result2.ok ? json4(result2.body, result2.status) : json4({ show: !1 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/sponsored-survey",
+      "line": 253041,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      if (!app.sponsoredSurvey)\n        return json4({ ok: !1, error: \"Unavailable.\" }, 404);\n      let value2 = yield* body2(req);\n      if (typeof value2.action !== \"string\" || !ACTIONS2.has(value2.action))\n        return json4({ ok: !1, error: \"unknown action\" }, 400);\n      if (value2.optionIds !== void 0 && (!Array.isArray(value2.optionIds) || value2.optionIds.length > MAX_OPTION_IDS2))\n        return json4({ ok: !1, error: \"optionIds must be a short list\" }, 400);\n      if (value2.textAnswer !== void 0 && (typeof value2.textAnswer !== \"string\" || value2.textAnswer.length > SPONSORED_SURVEY_LIMITS.textAnswerMax))\n        return json4({ ok: !1, error: \"textAnswer is too long\" }, 400);\n      let result2 = yield* exports_Effect.promise(() => app.sponsoredSurvey.post({ ...value2, surface: \"desktop\" })), reply = result2.ok ? result2.body : null;\n      if (typeof reply?.rewardedFreebucks === \"number\" && reply.rewardedFreebucks > 0)\n        app.sessions.refreshTier().catch(() => {});\n      return relay4(result2);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/projects",
+      "line": 253314,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), result2 = yield* exports_Effect.tryPromise({\n        try: () => createProject(value2, app.stateFile, app.registry, { readAuth: () => {\n          let auth3 = app.auth();\n          return auth3.token && auth3.user ? { token: auth3.token, user: auth3.user } : null;\n        } }, fetch, app.templates),\n        catch: (error46) => error46 instanceof Error ? error46.message : \"Could not create project\"\n      }).pipe(exports_Effect.either);\n      if (result2._tag === \"Left\")\n        return json4({ error: result2.left }, 400);\n      let { path: path36, project: project3, newlyCreated, creationIntent } = result2.right;\n      if (newlyCreated) {\n        let properties = {\n          source: project3.github ? \"github\" : project3.template ? \"template\" : project3.sources.length ? \"folder\" : \"empty\",\n          ...project3.template ? { template: project3.template.id, template_id: project3.template.id } : {},\n          location: project3.location,\n          intent: creationIntent\n        };\n        try {\n          if (app.analytics.track(\"desktop.project_created\", properties), creationIntent === \"explicit\")\n            app.analytics.track(\"desktop.project_opened\", properties);\n        } catch {}\n      }\n      return json4({ path: path36, project: project3 });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/templates",
+      "line": 253343,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      if (!app.templates)\n        return json4({ error: \"Templates are unavailable right now.\" }, 503);\n      let result2 = yield* exports_Effect.tryPromise({\n        try: () => app.templates.catalog(),\n        catch: (error46) => error46 instanceof Error ? error46.message : \"Could not load templates\"\n      }).pipe(exports_Effect.either);\n      if (result2._tag === \"Left\")\n        return json4({ error: result2.left }, 502);\n      return json4(result2.right);\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/projects/access",
+      "line": 253359,
+      "handler": "() => exports_Effect.gen(function* () {\n      let token = (yield* App).auth().token;\n      return json4({ allowed: yield* exports_Effect.promise(() => readProjectsAccess(token)) });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/project/validate",
+      "line": 253367,
+      "handler": "(_req, url2) => exports_Effect.gen(function* () {\n      let dir = url2.searchParams.get(\"path\");\n      if (!dir)\n        return json4({ error: \"path required\" }, 400);\n      return json4(yield* exports_Effect.promise(() => validateProjectDir(dir)));\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/project/recents",
+      "line": 253377,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App, paths = app.stateFile.readRecents(), names3 = Object.fromEntries(paths.flatMap((path36) => {\n        let name36 = app.stateFile.readProject?.(path36)?.name ?? app.stateFile.readProjectName?.(path36);\n        return name36 ? [[path36, name36]] : [];\n      }));\n      return json4({ paths, names: names3 });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/projects",
+      "line": 253388,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App, open13 = new Map(app.registry.all().map((engine) => [engine.root, engine])), removed = app.stateFile.readRemovedProjects?.() ?? {}, saved = app.stateFile.readProjects?.() ?? {}, folderNames = app.stateFile.readProjectNames?.() ?? {}, noFolderPaths = Object.entries(saved).filter(([path36, project3]) => project3.noFolder && !(path36 in removed)).map(([path36]) => path36);\n      return json4({\n        names: [.../* @__PURE__ */ new Set([...Object.keys(saved), ...Object.keys(folderNames), ...app.stateFile.readRecents()])].filter((path36) => !(path36 in removed)).map((path36) => saved[path36]?.name ?? app.stateFile.readProject?.(path36)?.name ?? folderNames[path36] ?? app.stateFile.readProjectName?.(path36) ?? basename11(path36)),\n        projects: [.../* @__PURE__ */ new Set([...app.stateFile.readRecents(), ...noFolderPaths])].map((path36) => ({\n          path: path36,\n          project: app.stateFile.readProject?.(path36),\n          name: app.stateFile.readProjectName?.(path36),\n          threads: open13.get(path36)?.listThreads() ?? []\n        }))\n      });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/project/files",
+      "line": 253404,
+      "handler": "(_req, url2) => exports_Effect.gen(function* () {\n      let engine = yield* projectEngine(url2);\n      return json4({ files: yield* exports_Effect.promise(() => engine.projectFiles()) });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/project/changes",
+      "line": 253412,
+      "handler": "(_req, url2) => exports_Effect.gen(function* () {\n      let engine = yield* projectEngine(url2), summary5 = yield* exports_Effect.promise(() => engine.projectChanges()), git = yield* exports_Effect.promise(() => engine.deps.gitState.state(engine.root));\n      return json4({\n        scope: \"uncommitted\",\n        branch: git.branch,\n        files: summary5.files,\n        totals: {\n          files: summary5.files.length,\n          adds: summary5.files.reduce((n, f5) => n + (f5.adds ?? 0), 0),\n          dels: summary5.files.reduce((n, f5) => n + (f5.dels ?? 0), 0)\n        }\n      });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/project/changes/diff",
+      "line": 253429,
+      "handler": "(_req, url2) => exports_Effect.gen(function* () {\n      let engine = yield* projectEngine(url2), diff9 = yield* exports_Effect.promise(() => engine.projectFileDiff(url2.searchParams.get(\"file\") ?? \"\", isTrue(url2.searchParams.get(\"untracked\"))));\n      return \"error\" in diff9 ? json4(diff9, 400) : json4(diff9);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/project/open",
+      "line": 253437,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (!value2.path || typeof value2.path !== \"string\")\n        return json4({ error: \"path required\" }, 400);\n      let result2 = yield* exports_Effect.promise(() => app.registry.ensure(value2.path));\n      if (!result2.ok)\n        return json4(result2, 400);\n      return app.registry.markRecent(result2.path), app.analytics.track(\"desktop.project_opened\"), json4({ ok: !0, path: result2.path });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/project/relocate",
+      "line": 253450,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), from = typeof value2.from === \"string\" ? value2.from : null, to3 = typeof value2.to === \"string\" ? value2.to : null;\n      if (!from || !to3)\n        return json4({ error: \"from and to required\" }, 400);\n      let previous = resolveProjectPath(from);\n      if ((yield* exports_Effect.promise(() => validateProjectDir(previous))).ok)\n        return json4({ error: \"That project is still where it was.\" }, 409);\n      let expected = app.appLocalProjectIdFor(previous), result2 = yield* exports_Effect.promise(() => app.registry.ensure(to3));\n      if (!result2.ok)\n        return json4({ error: result2.error }, 400);\n      app.registry.markRecent(result2.path), app.stateFile.removeRecent(previous), app.registry.remove(previous);\n      let sameProject = expected !== null && expected === readProjectIdentity(result2.path);\n      return app.features.track(\"project.relocated\", { sameProject }), json4({\n        path: result2.path,\n        sameProject,\n        threads: result2.engine.listThreads().length\n      });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/project/remove",
+      "line": 253472,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (!value2.path || typeof value2.path !== \"string\")\n        return json4({ error: \"path required\" }, 400);\n      let path36 = resolveProjectPath(value2.path), cloud = yield* exports_Effect.tryPromise({\n        try: () => removeCloudProject(path36, app.stateFile, { readAuth: () => {\n          let auth3 = app.auth();\n          return auth3.token && auth3.user ? { token: auth3.token, user: auth3.user } : null;\n        } }),\n        catch: (error46) => error46 instanceof Error ? error46.message : \"Could not remove the project\"\n      }).pipe(exports_Effect.either);\n      if (cloud._tag === \"Left\")\n        return json4({ error: cloud.left }, 400);\n      return app.stateFile.removeRecent(path36), app.stateFile.markProjectRemoved?.(path36), app.registry.remove(path36), app.features.track(\"project.removed\"), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/project/rename",
+      "line": 253491,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (!value2.path || typeof value2.path !== \"string\" || typeof value2.name !== \"string\")\n        return json4({ error: \"path and name required\" }, 400);\n      let path36 = resolveProjectPath(value2.path), result2 = yield* exports_Effect.tryPromise({\n        try: () => renameProject(path36, value2.name, app.stateFile, { readAuth: () => {\n          let auth3 = app.auth();\n          return auth3.token && auth3.user ? { token: auth3.token, user: auth3.user } : null;\n        } }),\n        catch: (error46) => error46 instanceof Error ? error46.message : \"Could not rename the project\"\n      }).pipe(exports_Effect.either);\n      if (result2._tag === \"Left\")\n        return json4({ error: result2.left }, 400);\n      return app.registry.get(path36)?.emitState(), app.features.track(\"project.renamed\"), json4({ name: result2.right });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/project/cloud-policy",
+      "line": 253510,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (typeof value2.path !== \"string\" || value2.policy !== \"auto\" && value2.policy !== \"never\")\n        return json4({ error: \"path and policy required\" }, 400);\n      let path36 = resolveProjectPath(value2.path), project3 = app.stateFile.readProject?.(path36);\n      if (!project3 || project3.location !== \"local\" || !app.stateFile.writeProject)\n        return json4({ error: \"Only a local project can stay off Cloud\" }, 400);\n      let { cloudPolicy: _previous, ...rest } = project3;\n      return app.stateFile.writeProject(path36, value2.policy === \"never\" ? { ...rest, cloudPolicy: \"never\" } : rest), app.registry.get(path36)?.emitState(), app.features.track(\"project.cloud_policy_set\", { policy: value2.policy }), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/project/branches",
+      "line": 253524,
+      "handler": "(_req, url2) => exports_Effect.gen(function* () {\n      let app = yield* App, dir = url2.searchParams.get(\"path\");\n      if (!dir)\n        return json4({ error: \"path required\" }, 400);\n      let result2 = yield* exports_Effect.promise(() => app.registry.ensure(dir));\n      if (!result2.ok)\n        return json4({ error: result2.error }, 400);\n      let gitState = result2.engine.deps.gitState, [branches, remoteBranches] = yield* exports_Effect.promise(() => Promise.all([gitState.listBranches(result2.path), gitState.listRemoteBranches(result2.path)]));\n      return json4({ branches, remoteBranches });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/project/switch-branch",
+      "line": 253538,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), dir = typeof value2.path === \"string\" ? value2.path : null, branch = typeof value2.branch === \"string\" ? value2.branch.trim() : \"\";\n      if (!dir || !branch)\n        return json4({ error: \"path and branch required\" }, 400);\n      if (branch.startsWith(\"-\"))\n        return json4({ error: \"invalid branch name\" }, 400);\n      let prepare2 = value2.prepare === void 0 || value2.prepare === null ? void 0 : value2.prepare;\n      if (prepare2 !== void 0 && prepare2 !== \"checkpoint\" && prepare2 !== \"stash\" && prepare2 !== \"discard\")\n        return json4({ error: \"invalid prepare step\" }, 400);\n      let result2 = yield* exports_Effect.promise(() => app.registry.ensure(dir));\n      if (!result2.ok)\n        return json4({ error: result2.error }, 400);\n      let res = yield* exports_Effect.promise(() => result2.engine.deps.gitState.switchBranch(result2.path, branch, prepare2));\n      if (!res.ok)\n        return json4({ error: res.error }, 409);\n      return app.features.track(\"project.branch_switched\", prepare2 ? { prepare: prepare2 } : void 0), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/project/git-state",
+      "line": 253559,
+      "handler": "(_req, url2) => exports_Effect.gen(function* () {\n      let app = yield* App, dir = url2.searchParams.get(\"path\");\n      if (!dir)\n        return json4({ error: \"path required\" }, 400);\n      let result2 = yield* exports_Effect.promise(() => app.registry.ensure(dir));\n      if (!result2.ok)\n        return json4({ error: result2.error }, 400);\n      let state = yield* exports_Effect.promise(() => result2.engine.deps.gitState.state(result2.path)), wire = {\n        branch: state.branch,\n        dirty: state.dirty,\n        ahead: state.ahead,\n        behind: state.behind,\n        isGitRepo: state.isGitRepo,\n        enclosingRepoRoot: state.enclosingRepoRoot\n      };\n      return json4(wire);\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/project/execution-mode",
+      "line": 253580,
+      "handler": "(_req, url2) => exports_Effect.gen(function* () {\n      let app = yield* App, dir = url2.searchParams.get(\"path\");\n      if (!dir)\n        return json4({ error: \"path required\" }, 400);\n      return json4({ mode: app.stateFile.readExecutionModePref(dir) });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/project/execution-mode",
+      "line": 253590,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), dir = typeof value2.path === \"string\" ? value2.path : null;\n      if (!dir)\n        return json4({ error: \"path required\" }, 400);\n      if (value2.mode !== \"local\" && value2.mode !== \"worktree\")\n        return json4({ error: \"invalid execution mode\" }, 400);\n      let info2 = yield* exports_Effect.promise(() => validateProjectDir(dir));\n      if (!info2.ok)\n        return json4({ error: info2.error }, 400);\n      if (value2.mode === \"worktree\" && !info2.isGitRepo)\n        return json4({\n          error: info2.gitMissing ? gitMissingMessage() : noIsolatedWorkspaceMessage(info2.enclosingRepoRoot)\n        }, 400);\n      return app.stateFile.writeExecutionModePref(info2.path, value2.mode), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/project-env/targets",
+      "line": 253869,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return json4({ projects: projectEnvTargets(app.stateFile) });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/project-env",
+      "line": 253877,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), { path: path36, apiKey, baseUrl } = value2;\n      if (typeof apiKey !== \"string\" || !PROJECT_ENV_KEY_PATTERN.test(apiKey))\n        return json4({ error: \"That is not a Freebuff API key.\" }, 400);\n      if (typeof baseUrl !== \"string\" || !validBaseUrl(baseUrl))\n        return json4({ error: \"Invalid base URL.\" }, 400);\n      if (typeof path36 !== \"string\" || !projectEnvTargets(app.stateFile).some((target4) => target4.path === path36))\n        return json4({ error: \"Choose one of your projects.\" }, 404);\n      let result2 = yield* exports_Effect.tryPromise({\n        try: () => writeProjectEnv(path36, { apiKey, baseUrl }),\n        catch: (error46) => error46 instanceof ProjectEnvError ? error46.message : \"Could not write .env in this project.\"\n      }).pipe(exports_Effect.either);\n      return result2._tag === \"Left\" ? json4({ error: result2.left }, 400) : json4(result2.right);\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/search",
+      "line": 254061,
+      "handler": "(request5, url2) => exports_Effect.gen(function* () {\n    let query = url2.searchParams.get(\"query\") ?? \"\";\n    if (query.length > SEARCH_QUERY_LIMIT)\n      return json4({ error: \"Search is limited to 160 characters.\" }, 400);\n    let app = yield* App;\n    return json4(yield* exports_Effect.promise(() => search.search(app.registry.all(), query, {\n      activeThreadId: url2.searchParams.get(\"activeThreadId\") ?? void 0,\n      excludeFileThreadIds: url2.searchParams.getAll(\"excludeFileThreadId\").slice(0, 100),\n      signal: request5.signal\n    })));\n  })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/cloud/auto-archive",
+      "line": 254245,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, parsed = method === \"PATCH\" ? chatAutoArchiveSettingsSchema.safeParse(yield* body2(req)) : void 0;\n      if (parsed && !parsed.success)\n        return json4({ error: \"Choose 1, 3, 7 or 14 days\" }, 400);\n      return yield* exports_Effect.promise(() => app.account.request(\"/api/v1/cloud/history/archive-settings\", method, parsed?.data));\n    })"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/cloud/auto-archive",
+      "line": 254245,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, parsed = method === \"PATCH\" ? chatAutoArchiveSettingsSchema.safeParse(yield* body2(req)) : void 0;\n      if (parsed && !parsed.success)\n        return json4({ error: \"Choose 1, 3, 7 or 14 days\" }, 400);\n      return yield* exports_Effect.promise(() => app.account.request(\"/api/v1/cloud/history/archive-settings\", method, parsed?.data));\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/account/skills",
+      "line": 254255,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = method === \"PUT\" ? accountSkillsUpdateSchema.safeParse(yield* body2(req)) : void 0;\n      if (value2 && !value2.success)\n        return json4({ error: \"Invalid skills\" }, 400);\n      if (!app.accountSkills)\n        return json4({ error: \"Skills are unavailable\" }, 503);\n      return yield* exports_Effect.tryPromise({\n        try: async () => json4(value2?.data ? await app.accountSkills.save(value2.data) : await app.accountSkills.read()),\n        catch: (error46) => error46\n      }).pipe(exports_Effect.catchAll((error46) => exports_Effect.succeed(json4({\n        error: error46 instanceof Error ? error46.message : \"Could not sync skills\"\n      }, error46 instanceof AccountSkillsError ? error46.status : 502))));\n    })"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/account/skills",
+      "line": 254255,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = method === \"PUT\" ? accountSkillsUpdateSchema.safeParse(yield* body2(req)) : void 0;\n      if (value2 && !value2.success)\n        return json4({ error: \"Invalid skills\" }, 400);\n      if (!app.accountSkills)\n        return json4({ error: \"Skills are unavailable\" }, 503);\n      return yield* exports_Effect.tryPromise({\n        try: async () => json4(value2?.data ? await app.accountSkills.save(value2.data) : await app.accountSkills.read()),\n        catch: (error46) => error46\n      }).pipe(exports_Effect.catchAll((error46) => exports_Effect.succeed(json4({\n        error: error46 instanceof Error ? error46.message : \"Could not sync skills\"\n      }, error46 instanceof AccountSkillsError ? error46.status : 502))));\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/account/web",
+      "line": 254272,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(() => proxyAccountWeb(req, app.auth().token));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/account/web",
+      "line": 254272,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(() => proxyAccountWeb(req, app.auth().token));\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/account/settings/:section",
+      "line": 254280,
+      "handler": "(_req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      if (ACCOUNT_SETTINGS_READS.includes(params.section))\n        return yield* exports_Effect.promise(() => app.account.request(`/api/desktop/settings/${params.section}`, \"GET\", void 0, !0));\n      let paths = {\n        usage: \"/api/v1/freebuff/usage-summary\",\n        billing: \"/api/freebuff/subscriptions\",\n        allowance: \"/api/v1/freebuff/session\",\n        \"auto-topup\": \"/api/freebuff/freebucks/auto-topup\"\n      }, path36 = Object.hasOwn(paths, params.section) ? paths[params.section] : void 0;\n      if (!path36)\n        return json4({ error: \"Unknown settings section\" }, 404);\n      return yield* exports_Effect.promise(() => app.account.request(path36));\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/cloud/skills/:action",
+      "line": 254298,
+      "handler": "(_req, url2, params) => exports_Effect.gen(function* () {\n      if (![\"search\", \"download\"].includes(params.action))\n        return json4({ error: \"Not found\" }, 404);\n      let app = yield* App, key2 = params.action === \"search\" ? \"q\" : \"id\";\n      return yield* exports_Effect.promise(() => app.account.request(`/api/v1/cloud/skills/${params.action}?${key2}=${encodeURIComponent(url2.searchParams.get(key2) ?? \"\")}`));\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/cloud/projects",
+      "line": 254308,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* exports_Effect.promise(() => app.account.request(\"/api/v1/cloud/projects\"));\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/cloud/projects/:id/settings",
+      "line": 254316,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      if (!idPattern.test(params.id))\n        return json4({ error: \"Invalid Cloud project\" }, 400);\n      let app = yield* App, value2 = method === \"PUT\" ? cloudProjectSettingsUpdateSchema.safeParse(yield* body2(req)) : void 0;\n      if (value2 && !value2.success)\n        return json4({ error: \"Invalid project settings\" }, 400);\n      return yield* exports_Effect.promise(() => app.account.request(`/api/v1/cloud/projects/${params.id}/settings`, method, value2?.data));\n    })"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/cloud/projects/:id/settings",
+      "line": 254316,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      if (!idPattern.test(params.id))\n        return json4({ error: \"Invalid Cloud project\" }, 400);\n      let app = yield* App, value2 = method === \"PUT\" ? cloudProjectSettingsUpdateSchema.safeParse(yield* body2(req)) : void 0;\n      if (value2 && !value2.success)\n        return json4({ error: \"Invalid project settings\" }, 400);\n      return yield* exports_Effect.promise(() => app.account.request(`/api/v1/cloud/projects/${params.id}/settings`, method, value2?.data));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/byok/connections/:id/models",
+      "line": 254349,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, parsed = newModel.safeParse(yield* body2(req));\n      if (!parsed.success)\n        return json4({ error: \"Invalid provider model fields\" }, 400);\n      let { revision, ...model } = parsed.data;\n      return yield* operation(() => app.byok.addModel({ id: params.id, revision, model }), (connection) => json4({ connection }, 201));\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/byok/connections",
+      "line": 254360,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return yield* operation(() => app.byok.list(), (connections) => json4({ connections }));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/byok/connections",
+      "line": 254368,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, parsed = fields.safeParse(yield* body2(req));\n      if (!parsed.success)\n        return json4({ error: \"Invalid provider connection fields\" }, 400);\n      return yield* operation(() => app.byok.create(parsed.data), (connection) => json4({ connection }, 201));\n    })"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/byok/connections/:id",
+      "line": 254378,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, parsed = patch9.safeParse(yield* body2(req));\n      if (!parsed.success)\n        return json4({ error: \"Invalid provider update or revision\" }, 400);\n      let { revision, ...updates } = parsed.data;\n      if (!Object.keys(updates).length)\n        return json4({ error: \"No provider changes supplied\" }, 400);\n      return yield* operation(() => app.byok.update({ id: params.id, revision, patch: updates }), (connection) => json4({ connection }), 409);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/byok/connections/:id/validate",
+      "line": 254391,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, parsed = selection.safeParse(yield* body2(req));\n      if (!parsed.success)\n        return json4({ error: \"A positive revision is required\" }, 400);\n      return yield* operation(() => app.byok.validate({ id: params.id, revision: parsed.data.revision }), (result2) => json4(result2, result2.ok ? 200 : 400), 409);\n    })"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/byok/connections/:id",
+      "line": 254401,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, parsed = selection.safeParse(yield* body2(req));\n      if (!parsed.success)\n        return json4({ error: \"A positive revision is required\" }, 400);\n      return yield* operation(() => app.byok.remove({ id: params.id, revision: parsed.data.revision }), () => json4({ ok: !0 }), 409);\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/cloud/agent-credentials",
+      "line": 254526,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return relayAgentCredentials(app, yield* exports_Effect.promise(() => app.accountByok.agentCredentials(\"\", \"GET\")));\n    })"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/cloud/agent-credentials/claude-code",
+      "line": 254534,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, parsed = claudeKey.safeParse(yield* body2(req));\n      if (!parsed.success)\n        return json4({ error: \"Paste a Claude Code key.\" }, 400);\n      return relayAgentCredentials(app, yield* exports_Effect.promise(() => app.accountByok.agentCredentials(\"/claude-code\", \"PUT\", parsed.data)));\n    })"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/cloud/agent-credentials/claude-code",
+      "line": 254544,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return relayAgentCredentials(app, yield* exports_Effect.promise(() => app.accountByok.agentCredentials(\"/claude-code\", \"DELETE\")));\n    })"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/cloud/agent-credentials/codex",
+      "line": 254552,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, parsed = claudeKey.safeParse(yield* body2(req));\n      if (!parsed.success)\n        return json4({ error: \"Paste an OpenAI API key.\" }, 400);\n      return relayAgentCredentials(app, yield* exports_Effect.promise(() => app.accountByok.agentCredentials(\"/codex\", \"PUT\", parsed.data)));\n    })"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/cloud/agent-credentials/codex",
+      "line": 254562,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return relayAgentCredentials(app, yield* exports_Effect.promise(() => app.accountByok.agentCredentials(\"/codex\", \"DELETE\")));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/cloud/agent-credentials/claude-code/login",
+      "line": 254570,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return relay5(yield* exports_Effect.promise(() => app.accountByok.agentCredentials(\"/claude-code/login\", \"POST\", {}, 420000)));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/cloud/agent-credentials/claude-code/login/complete",
+      "line": 254578,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, parsed = claudeLoginStep.safeParse(yield* body2(req));\n      if (!parsed.success)\n        return json4({ error: \"Paste the code Claude showed.\" }, 400);\n      return relayAgentCredentials(app, yield* exports_Effect.promise(() => app.accountByok.agentCredentials(\"/claude-code/login/complete\", \"POST\", parsed.data, 120000)));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/cloud/agent-credentials/claude-code/login/cancel",
+      "line": 254588,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, parsed = claudeLoginStep.safeParse(yield* body2(req));\n      if (!parsed.success)\n        return json4({ error: \"Invalid Claude sign-in step\" }, 400);\n      return relay5(yield* exports_Effect.promise(() => app.accountByok.agentCredentials(\"/claude-code/login/cancel\", \"POST\", {\n        handle: parsed.data.handle\n      })));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/cloud/agent-credentials/claude-code/connect",
+      "line": 254600,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App, executable = (yield* exports_Effect.promise(() => resolveClaudeExecutableSettled())) ?? Bun.which(\"claude\");\n      if (!executable)\n        return json4({ error: \"Install Claude Code to connect it, or paste a key instead.\" }, 409);\n      let token = yield* exports_Effect.promise(() => runClaudeSetupToken(executable).then((value2) => ({ value: value2 }), (error46) => ({\n        error: error46 instanceof ClaudeSetupTokenError ? error46.message : \"Could not run Claude Code to connect it.\"\n      })));\n      if (\"error\" in token)\n        return json4({ error: token.error }, 409);\n      return relayAgentCredentials(app, yield* exports_Effect.promise(() => app.accountByok.agentCredentials(\"/claude-code\", \"PUT\", {\n        key: token.value\n      })));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/byok/account/chatgpt/login",
+      "line": 254617,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return relay5(yield* exports_Effect.promise(() => app.accountByok.request(\"/chatgpt/login\", \"POST\", {})));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/byok/account/chatgpt/poll",
+      "line": 254625,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, parsed = chatGptPoll.safeParse(yield* body2(req));\n      if (!parsed.success)\n        return json4({ error: \"Start the ChatGPT sign-in again.\" }, 400);\n      return relay5(yield* exports_Effect.promise(() => app.accountByok.request(\"/chatgpt/poll\", \"POST\", parsed.data)));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/byok/account/chatgpt/models",
+      "line": 254635,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, parsed = chatGptModel2.safeParse(yield* body2(req));\n      if (!parsed.success)\n        return json4({ error: \"Invalid provider model fields\" }, 400);\n      return relay5(yield* exports_Effect.promise(() => app.accountByok.request(\"/chatgpt/models\", \"POST\", parsed.data)));\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/byok/account",
+      "line": 254645,
+      "handler": "() => exports_Effect.gen(function* () {\n      let app = yield* App;\n      return relay5(yield* exports_Effect.promise(() => app.accountByok.request(\"\", \"GET\")));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/byok/account",
+      "line": 254653,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, parsed = create.safeParse(yield* body2(req));\n      if (!parsed.success)\n        return json4({ error: \"Invalid provider connection fields\" }, 400);\n      return relay5(yield* exports_Effect.promise(() => app.accountByok.request(\"\", \"POST\", parsed.data)));\n    })"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/byok/account/:id",
+      "line": 254663,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      if (!UUID4.test(params.id))\n        return json4({ error: \"Provider not found\" }, 404);\n      let parsed = update5.safeParse(yield* body2(req));\n      if (!parsed.success)\n        return json4({ error: \"Invalid provider update or revision\" }, 400);\n      return relay5(yield* exports_Effect.promise(() => app.accountByok.request(`/${params.id}`, \"PATCH\", parsed.data)));\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/byok/account/:id/validate",
+      "line": 254676,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      if (!UUID4.test(params.id))\n        return json4({ error: \"Provider not found\" }, 404);\n      let parsed = selection2.safeParse(yield* body2(req));\n      if (!parsed.success)\n        return json4({ error: \"A positive revision is required\" }, 400);\n      return relay5(yield* exports_Effect.promise(() => app.accountByok.request(`/${params.id}/validate`, \"POST\", parsed.data)));\n    })"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/byok/account/:id",
+      "line": 254689,
+      "handler": "(_req, url2, params) => exports_Effect.gen(function* () {\n      let app = yield* App, revision = url2.searchParams.get(\"revision\") ?? \"\";\n      if (!UUID4.test(params.id) || !/^[1-9][0-9]{0,8}$/.test(revision))\n        return json4({ error: \"A positive revision is required\" }, 400);\n      return relay5(yield* exports_Effect.promise(() => app.accountByok.request(`/${params.id}?revision=${revision}`, \"DELETE\")));\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/settings/auto-archive",
+      "line": 254779,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      if (method === \"PATCH\") {\n        let parsed = chatAutoArchiveSettingsSchema.safeParse(yield* body2(req));\n        if (!parsed.success)\n          return json4({ error: \"Choose 1, 3, 7 or 14 days\" }, 400);\n        app.stateFile.writeUiPrefs({ localChatAutoArchiveDays: parsed.data.days });\n      }\n      return json4({ days: chatAutoArchiveDays(app.stateFile.readUiPrefs().localChatAutoArchiveDays) });\n    })"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/settings/auto-archive",
+      "line": 254779,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App;\n      if (method === \"PATCH\") {\n        let parsed = chatAutoArchiveSettingsSchema.safeParse(yield* body2(req));\n        if (!parsed.success)\n          return json4({ error: \"Choose 1, 3, 7 or 14 days\" }, 400);\n        app.stateFile.writeUiPrefs({ localChatAutoArchiveDays: parsed.data.days });\n      }\n      return json4({ days: chatAutoArchiveDays(app.stateFile.readUiPrefs().localChatAutoArchiveDays) });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/workspace/bootstrap",
+      "line": 254796,
+      "handler": "(_req, url2) => exports_Effect.gen(function* () {\n      let app = yield* App, prefs = app.stateFile.readUiPrefs(), drafts = app.stateFile.readDrafts(), fileEdits = app.stateFile.readFileEdits(), terminalContexts = app.stateFile.readTerminalContexts(), diffComments = app.stateFile.readDiffComments(), saved = app.stateFile.readWorkspace(), hasProjectHistory = Boolean(saved?.tabs.length || saved?.spaces.length || saved?.windows.length || app.stateFile.readRecents().length || Object.keys(app.stateFile.readProjects?.() ?? {}).length || prefs.prompted);\n      if (!prefs.projectSetupCompleted && hasProjectHistory)\n        prefs.projectSetupCompleted = !0, app.stateFile.writeUiPrefs({ projectSetupCompleted: !0 });\n      if (!saved)\n        return json4({ workspace: null, prefs, drafts, fileEdits: {}, terminalContexts, diffComments, unusableProjects: {} });\n      if (url2.searchParams.get(\"restore\") === \"false\")\n        return json4({ workspace: null, prefs, drafts, fileEdits, terminalContexts, diffComments, unusableProjects: {} });\n      let unusableProjects = yield* exports_Effect.promise(() => app.registry.bootFromWorkspace([...saved.tabs, ...saved.windows, ...saved.spaces ?? []].map((t) => t.projectPath))), tabs = saved.tabs.filter((tab) => app.registry.forThread(tab.file ? tab.file.threadId : tab.id) != null), windows = saved.windows.filter((tab) => app.registry.forThread(tab.id) != null), live = new Set(tabs.map((t) => t.id)), activeId = saved.activeId === null ? null : saved.activeId && live.has(saved.activeId) ? saved.activeId : tabs[0]?.id ?? null, spaces = saved.spaces.map((space) => space.activeId && !live.has(space.activeId) ? { ...space, activeId: null } : space), activeSpaceId = (activeId ? tabs.find((t) => t.id === activeId)?.spaceId : void 0) ?? (spaces.some((s8) => s8.id === saved.activeSpaceId) ? saved.activeSpaceId : null) ?? (spaces[0]?.id ?? null), liveFileEdits = Object.fromEntries(Object.entries(fileEdits).filter(([tabId]) => live.has(tabId) || [...tabs, ...windows].some((tab) => !tab.file && tabId.startsWith(`file:${tab.id}:`) && prefs.openExplorerTabs?.[tab.id]?.includes(`file:${tabId.slice(`file:${tab.id}:`.length)}`))));\n      return json4({\n        workspace: { tabs, activeId, windows, spaces, activeSpaceId },\n        prefs,\n        drafts,\n        fileEdits: liveFileEdits,\n        terminalContexts,\n        diffComments,\n        unusableProjects\n      });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/workspace",
+      "line": 254819,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (!Array.isArray(value2.tabs))\n        return json4({ error: \"tabs must be an array\" }, 400);\n      return app.stateFile.writeWorkspace(coerceWorkspace(value2)), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/settings/ui",
+      "line": 254829,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), patch10 = {};\n      for (let key2 of [\"explorerWidth\", \"catalogWidth\"]) {\n        let width = value2[key2];\n        if (width === void 0)\n          continue;\n        if (typeof width !== \"number\" || !Number.isFinite(width))\n          return json4({ error: `${key2} must be a number` }, 400);\n        patch10[key2] = Math.min(MAX_PANE_WIDTH, Math.max(MIN_PANE_WIDTH, Math.round(width)));\n      }\n      if (value2.explorerCollapsed !== void 0) {\n        if (typeof value2.explorerCollapsed !== \"boolean\")\n          return json4({ error: \"explorerCollapsed must be a boolean\" }, 400);\n        patch10.explorerCollapsed = value2.explorerCollapsed;\n      }\n      if (value2.explorerTabs !== void 0) {\n        let tabs = coerceExplorerTabs(value2.explorerTabs);\n        if (!tabs)\n          return json4({ error: \"explorerTabs must map thread ids to explorer tabs\" }, 400);\n        patch10.explorerTabs = tabs;\n      }\n      if (value2.terminalLayouts !== void 0) {\n        let layouts = value2.terminalLayouts;\n        if (!layouts || typeof layouts !== \"object\" || Array.isArray(layouts) || Object.entries(layouts).some(([id3, layout]) => !id3 || !isTerminalLayout(layout)))\n          return json4({ error: \"terminalLayouts must map thread ids to valid terminal layouts\" }, 400);\n        patch10.terminalLayouts = {\n          ...app.stateFile.readUiPrefs().terminalLayouts,\n          ...layouts\n        };\n      }\n      if (value2.bottomTerminalLayout !== void 0) {\n        if (!isTerminalLayout(value2.bottomTerminalLayout))\n          return json4({ error: \"bottomTerminalLayout must be a valid terminal layout\" }, 400);\n        patch10.bottomTerminalLayout = value2.bottomTerminalLayout;\n      }\n      if (value2.hoursIntroSeenVersion !== void 0) {\n        if (!Number.isSafeInteger(value2.hoursIntroSeenVersion) || value2.hoursIntroSeenVersion < 0)\n          return json4({ error: \"hoursIntroSeenVersion must be a nonnegative integer\" }, 400);\n        patch10.hoursIntroSeenVersion = Math.max(app.stateFile.readUiPrefs().hoursIntroSeenVersion ?? 0, value2.hoursIntroSeenVersion);\n      }\n      if (value2.freebucksIntroSeen !== void 0) {\n        if (typeof value2.freebucksIntroSeen !== \"boolean\")\n          return json4({ error: \"freebucksIntroSeen must be a boolean\" }, 400);\n        patch10.freebucksIntroSeen = value2.freebucksIntroSeen;\n      }\n      if (value2.advancedMode !== void 0) {\n        if (typeof value2.advancedMode !== \"boolean\")\n          return json4({ error: \"advancedMode must be a boolean\" }, 400);\n        patch10.advancedMode = value2.advancedMode;\n      }\n      if (value2.threadGroupOrder !== void 0) {\n        let order = value2.threadGroupOrder;\n        if (!Array.isArray(order) || order.some((group) => !THREAD_GROUPS.includes(group)) || new Set(order).size !== order.length)\n          return json4({ error: \"threadGroupOrder must list thread groups at most once each\" }, 400);\n        patch10.threadGroupOrder = order;\n      }\n      if (value2.shortcuts !== void 0) {\n        let shortcuts = prefTable(value2.shortcuts, (binding) => binding === null || typeof binding === \"string\" && binding.length <= MAX_SHORTCUT_BINDING_CHARS);\n        if (!shortcuts)\n          return json4({ error: \"shortcuts must map shortcut ids to key bindings or null\" }, 400);\n        patch10.shortcuts = shortcuts;\n      }\n      if (value2.skillTally !== void 0) {\n        let tally = prefTable(value2.skillTally, (count3) => Number.isSafeInteger(count3) && count3 >= 0);\n        if (!tally)\n          return json4({ error: \"skillTally must map skill names to use counts\" }, 400);\n        patch10.skillTally = tally;\n      }\n      if (value2.showcaseDismissals !== void 0) {\n        let dismissals = prefTable(value2.showcaseDismissals, (at3) => typeof at3 === \"number\" && Number.isFinite(at3));\n        if (!dismissals)\n          return json4({ error: \"showcaseDismissals must map creative keys to times\" }, 400);\n        patch10.showcaseDismissals = dismissals;\n      }\n      if (value2.threadMentionTipSeen !== void 0) {\n        if (typeof value2.threadMentionTipSeen !== \"boolean\")\n          return json4({ error: \"threadMentionTipSeen must be a boolean\" }, 400);\n        patch10.threadMentionTipSeen = value2.threadMentionTipSeen;\n      }\n      if (value2.onboardingAsked !== void 0) {\n        if (typeof value2.onboardingAsked !== \"boolean\")\n          return json4({ error: \"onboardingAsked must be a boolean\" }, 400);\n        patch10.onboardingAsked = value2.onboardingAsked;\n      }\n      if (value2.projectSetupCompleted !== void 0) {\n        if (value2.projectSetupCompleted !== !0)\n          return json4({ error: \"projectSetupCompleted must be true\" }, 400);\n        patch10.projectSetupCompleted = !0;\n      }\n      if (value2.collapsedProjects !== void 0) {\n        if (!Array.isArray(value2.collapsedProjects) || value2.collapsedProjects.length > MAX_COLLAPSED_PROJECTS || value2.collapsedProjects.some((path36) => typeof path36 !== \"string\" || !path36))\n          return json4({ error: \"collapsedProjects must be a list of project paths\" }, 400);\n        patch10.collapsedProjects = value2.collapsedProjects;\n      }\n      if (value2.pinnedThreads !== void 0) {\n        if (!value2.pinnedThreads || typeof value2.pinnedThreads !== \"object\" || Array.isArray(value2.pinnedThreads) || Object.entries(value2.pinnedThreads).some(([id3, entry2]) => {\n          if (!id3 || !entry2 || typeof entry2 !== \"object\" || Array.isArray(entry2))\n            return !0;\n          let { projectPath, accessedAt } = entry2;\n          return typeof projectPath !== \"string\" || !projectPath || typeof accessedAt !== \"number\" || !Number.isFinite(accessedAt) || accessedAt < 0;\n        }))\n          return json4({ error: \"pinnedThreads must map chat IDs to project paths and access times\" }, 400);\n        patch10.pinnedThreads = value2.pinnedThreads;\n      }\n      if (value2.queueCollapsed !== void 0) {\n        if (typeof value2.queueCollapsed !== \"boolean\")\n          return json4({ error: \"queueCollapsed must be a boolean\" }, 400);\n        patch10.queueCollapsed = value2.queueCollapsed;\n      }\n      if (value2.notificationSounds !== void 0) {\n        if (typeof value2.notificationSounds !== \"boolean\")\n          return json4({ error: \"notificationSounds must be a boolean\" }, 400);\n        patch10.notificationSounds = value2.notificationSounds;\n      }\n      if (value2.injectAgentsMd !== void 0) {\n        if (typeof value2.injectAgentsMd !== \"boolean\")\n          return json4({ error: \"injectAgentsMd must be a boolean\" }, 400);\n        patch10.injectAgentsMd = value2.injectAgentsMd;\n      }\n      if (value2.autoStartSessions !== void 0) {\n        if (typeof value2.autoStartSessions !== \"boolean\")\n          return json4({ error: \"autoStartSessions must be a boolean\" }, 400);\n        patch10.autoStartSessions = value2.autoStartSessions;\n      }\n      if (value2.fullAccess !== void 0) {\n        if (typeof value2.fullAccess !== \"boolean\")\n          return json4({ error: \"fullAccess must be a boolean\" }, 400);\n        patch10.fullAccess = value2.fullAccess;\n      }\n      if (value2.theme !== void 0) {\n        if (value2.theme !== \"dark\" && value2.theme !== \"light\" && value2.theme !== \"system\")\n          return json4({ error: \"theme must be dark, light or system\" }, 400);\n        patch10.theme = value2.theme;\n      }\n      if (value2.appearance !== void 0) {\n        let appearance = appearancePreferencesSchema.safeParse(value2.appearance);\n        if (!appearance.success)\n          return json4({ error: appearance.error.issues[0]?.message ?? \"Invalid appearance preferences\" }, 400);\n        patch10.appearance = appearance.data;\n      }\n      if (value2.preferredEditor !== void 0) {\n        if (value2.preferredEditor !== \"vscode\" && value2.preferredEditor !== \"cursor\" && value2.preferredEditor !== \"zed\")\n          return json4({ error: \"preferredEditor must be vscode, cursor or zed\" }, 400);\n        patch10.preferredEditor = value2.preferredEditor;\n      }\n      if (value2.savedMissions !== void 0) {\n        if (!Array.isArray(value2.savedMissions) || value2.savedMissions.length > MAX_SAVED_MISSIONS || value2.savedMissions.some((mission) => typeof mission?.label !== \"string\" || typeof mission?.prompt !== \"string\" || !mission.label.trim() || !mission.prompt.trim() || mission.label.length > MAX_SAVED_MISSION_LABEL_CHARS || mission.prompt.length > MAX_MISSION_PROMPT_CHARS))\n          return json4({ error: \"savedMissions is malformed\" }, 400);\n        patch10.savedMissions = value2.savedMissions.map((mission) => ({\n          label: mission.label.trim(),\n          prompt: mission.prompt.trim()\n        }));\n      }\n      if (value2.projectMissions !== void 0) {\n        if (!value2.projectMissions || typeof value2.projectMissions !== \"object\" || Array.isArray(value2.projectMissions))\n          return json4({ error: \"projectMissions must be an object\" }, 400);\n        patch10.projectMissions = value2.projectMissions;\n      }\n      if (value2.mobileMirror !== void 0) {\n        if (typeof value2.mobileMirror !== \"boolean\")\n          return json4({ error: \"mobileMirror must be a boolean\" }, 400);\n        patch10.mobileMirror = value2.mobileMirror;\n      }\n      if (value2.cloudPresync !== void 0) {\n        if (typeof value2.cloudPresync !== \"boolean\")\n          return json4({ error: \"cloudPresync must be a boolean\" }, 400);\n        patch10.cloudPresync = value2.cloudPresync;\n      }\n      if (Object.keys(patch10).length === 0)\n        return json4({ error: \"no recognized UI preferences\" }, 400);\n      let previousPrefs = app.stateFile.readUiPrefs(), agentsMdWasOn = previousPrefs.injectAgentsMd !== !1, mirrorWasOn = previousPrefs.mobileMirror === !0, presyncWasOn = previousPrefs.cloudPresync === !0, fullAccessWasOn = previousPrefs.fullAccess === !0, soundsWereOn = previousPrefs.notificationSounds !== !1;\n      if (app.stateFile.writeUiPrefs(patch10), patch10.autoStartSessions !== void 0)\n        app.bus.publish({ type: \"session-auto-start\", enabled: patch10.autoStartSessions });\n      if (patch10.notificationSounds !== void 0) {\n        if (app.bus.publish({ type: \"notification-sounds\", enabled: patch10.notificationSounds }), patch10.notificationSounds !== soundsWereOn)\n          app.features.track(\"settings.notification_sounds_set\", { on: patch10.notificationSounds });\n      }\n      let nextAppearance;\n      if (patch10.appearance !== void 0)\n        nextAppearance = patch10.appearance, app.bus.publish({ type: \"appearance\", appearance: patch10.appearance });\n      else if (patch10.theme !== void 0) {\n        let appearance = { ...migrateAppearance(previousPrefs.appearance, previousPrefs.theme), selectedPreset: patch10.theme };\n        if (nextAppearance = appearance, previousPrefs.appearance)\n          app.stateFile.writeUiPrefs({ appearance });\n        app.bus.publish({ type: \"appearance\", appearance });\n      }\n      if (nextAppearance) {\n        let before2 = appearanceAnalytics(migrateAppearance(previousPrefs.appearance, previousPrefs.theme)), after3 = appearanceAnalytics(nextAppearance);\n        if (after3.appearance !== before2.appearance || after3.appearance_style !== before2.appearance_style)\n          app.features.track(\"appearance.set\", after3);\n        app.appearanceUsage?.report(nextAppearance);\n      }\n      if (patch10.injectAgentsMd !== void 0 && patch10.injectAgentsMd !== agentsMdWasOn)\n        app.features.track(\"composer.agents_md_set\", { on: patch10.injectAgentsMd });\n      if (patch10.fullAccess !== void 0 && patch10.fullAccess !== fullAccessWasOn)\n        app.features.track(\"settings.full_access_set\", { on: patch10.fullAccess });\n      if (patch10.mobileMirror !== void 0) {\n        if (app.mirror.setEnabled(patch10.mobileMirror), patch10.mobileMirror !== mirrorWasOn)\n          app.features.track(\"settings.mobile_mirror_set\", { on: patch10.mobileMirror });\n      }\n      if (patch10.cloudPresync !== void 0) {\n        if (app.cloudPresync.setEnabled(patch10.cloudPresync), patch10.cloudPresync !== presyncWasOn)\n          app.features.track(\"settings.cloud_presync_set\", { on: patch10.cloudPresync });\n      }\n      return json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/diff-comments",
+      "line": 255039,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (!value2.comments || typeof value2.comments !== \"object\" || Array.isArray(value2.comments))\n        return json4({ error: \"comments must be an object\" }, 400);\n      let windows = app.stateFile.readWorkspace()?.windows ?? [];\n      return app.stateFile.writeDiffComments(preserveWindowThreads({ ...value2.comments }, app.stateFile.readDiffComments(), windows)), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/thread-scratch",
+      "line": 255050,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (typeof value2.threadId !== \"string\" || !value2.threadId)\n        return json4({ error: \"threadId required\" }, 400);\n      if (value2.draft !== void 0 && typeof value2.draft !== \"string\")\n        return json4({ error: \"draft must be a string\" }, 400);\n      if (value2.explorerTab !== void 0 && value2.explorerTab !== null && !isExplorerTab(value2.explorerTab))\n        return json4({ error: \"invalid explorer tab\" }, 400);\n      if (value2.openExplorerTabs !== void 0 && (!Array.isArray(value2.openExplorerTabs) || !value2.openExplorerTabs.every(isExplorerTab)))\n        return json4({ error: \"invalid open explorer tabs\" }, 400);\n      if (value2.diffComments !== void 0 && !Array.isArray(value2.diffComments))\n        return json4({ error: \"diffComments must be an array\" }, 400);\n      if (value2.terminalContexts !== void 0 && !Array.isArray(value2.terminalContexts))\n        return json4({ error: \"terminalContexts must be an array\" }, 400);\n      if (value2.fileEdits !== void 0 && (!value2.fileEdits || typeof value2.fileEdits !== \"object\" || Array.isArray(value2.fileEdits) || !Object.entries(value2.fileEdits).every(([id3, edit]) => id3.startsWith(`file:${value2.threadId}:`) && !!edit && typeof edit === \"object\" && typeof edit.baseContent === \"string\" && typeof edit.content === \"string\" && typeof edit.revision === \"string\")))\n        return json4({ error: \"fileEdits must contain only this thread\\u2019s file drafts\" }, 400);\n      return app.stateFile.writeThreadScratch(value2.threadId, {\n        draft: value2.draft,\n        fileEdits: value2.fileEdits,\n        explorerTab: value2.explorerTab,\n        openExplorerTabs: value2.openExplorerTabs,\n        diffComments: value2.diffComments,\n        terminalContexts: value2.terminalContexts\n      }), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/drafts",
+      "line": 255079,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (!value2.drafts || typeof value2.drafts !== \"object\" || Array.isArray(value2.drafts))\n        return json4({ error: \"drafts must be an object\" }, 400);\n      let openTabs = value2.openExplorerTabs === void 0 ? void 0 : coerceOpenExplorerTabs(value2.openExplorerTabs);\n      if (openTabs === null)\n        return json4({ error: \"invalid open explorer tabs\" }, 400);\n      let windows = app.stateFile.readWorkspace()?.windows ?? [];\n      if (app.stateFile.writeDrafts(preserveWindowThreads({ ...value2.drafts }, app.stateFile.readDrafts(), windows)), value2.fileEdits && typeof value2.fileEdits === \"object\" && !Array.isArray(value2.fileEdits)) {\n        let inWindow = (id3) => windows.some((window2) => id3.startsWith(`file:${window2.id}:`));\n        app.stateFile.writeFileEdits({\n          ...Object.fromEntries(Object.entries(value2.fileEdits).filter(([id3]) => !inWindow(id3))),\n          ...Object.fromEntries(Object.entries(app.stateFile.readFileEdits()).filter(([id3]) => inWindow(id3)))\n        });\n      }\n      if (value2.terminalContexts && typeof value2.terminalContexts === \"object\" && !Array.isArray(value2.terminalContexts))\n        app.stateFile.writeTerminalContexts(preserveWindowThreads({ ...value2.terminalContexts }, app.stateFile.readTerminalContexts(), windows));\n      if (openTabs)\n        app.stateFile.writeUiPrefs({ openExplorerTabs: preserveWindowThreads(openTabs, app.stateFile.readUiPrefs().openExplorerTabs ?? {}, windows) });\n      let tabs = coerceExplorerTabs(value2.explorerTabs);\n      if (tabs)\n        app.stateFile.writeUiPrefs({\n          explorerTabs: preserveWindowThreads({ ...tabs }, app.stateFile.readUiPrefs().explorerTabs ?? {}, windows)\n        });\n      return json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/settings",
+      "line": 255109,
+      "handler": "(_req, url2) => exports_Effect.gen(function* () {\n      let app = yield* App, engine = app.registry.get(url2.searchParams.get(\"projectPath\")) ?? app.registry.get(app.registry.defaultPath());\n      if (!engine)\n        return json4({ error: \"no project\" }, 404);\n      let settings = engine.deps.settings.read(engine.root);\n      return json4({\n        path: engine.deps.settings.filePath(engine.root),\n        exists: engine.deps.settings.exists(engine.root),\n        settings,\n        errors: engine.deps.settings.errors(engine.root),\n        startupScriptApproved: !settings.startupScript || engine.deps.settings.approvedStartupScript(engine.root) !== void 0\n      });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/settings",
+      "line": 255126,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), engine = app.registry.get(typeof value2.projectPath === \"string\" ? value2.projectPath : null) ?? app.registry.get(app.registry.defaultPath());\n      if (!engine)\n        return json4({ error: \"no project\" }, 404);\n      if (!value2.settings || typeof value2.settings !== \"object\")\n        return json4({ error: \"settings object required\" }, 400);\n      try {\n        engine.deps.settings.write(engine.root, value2.settings);\n      } catch (error46) {\n        return json4({ error: error46.message }, 400);\n      }\n      return app.features.track(\"settings.project_saved\"), engine.emitState(), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/settings/startup-script",
+      "line": 255143,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req);\n      if (value2.startupScript !== null && typeof value2.startupScript !== \"string\")\n        return json4({ error: \"startupScript must be a string or null\" }, 400);\n      let engine = app.registry.get(typeof value2.projectPath === \"string\" ? value2.projectPath : null) ?? app.registry.get(app.registry.defaultPath());\n      if (!engine)\n        return json4({ error: \"no project\" }, 404);\n      let settings = engine.deps.settings.read(engine.root);\n      try {\n        engine.deps.settings.write(engine.root, {\n          ...settings,\n          startupScript: value2.startupScript ?? void 0\n        });\n      } catch (error46) {\n        return json4({ error: error46.message }, 400);\n      }\n      return app.features.track(\"settings.project_saved\"), engine.emitState(), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/skills",
+      "line": 255165,
+      "handler": "(_req, url2) => exports_Effect.gen(function* () {\n      let app = yield* App, engine = app.registry.get(url2.searchParams.get(\"projectPath\")) ?? app.registry.get(app.registry.defaultPath());\n      if (engine)\n        yield* exports_Effect.either(exports_Effect.tryPromise({\n          try: () => engine.deps.skills.accountContext?.() ?? Promise.resolve(\"\"),\n          catch: (error46) => error46 instanceof Error ? error46 : Error(String(error46))\n        }));\n      return json4({ skills: engine ? engine.deps.skills.list(engine.root) : [] });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/skills/search",
+      "line": 255178,
+      "handler": "(_req, url2) => exports_Effect.gen(function* () {\n      let app = yield* App, engine = app.registry.get(app.registry.defaultPath()), query = url2.searchParams.get(\"query\") ?? \"\";\n      if (!engine || !query.trim())\n        return json4({ results: [] });\n      return json4({ results: yield* exports_Effect.promise(() => engine.deps.skills.search(query)) });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/skills/install",
+      "line": 255188,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), engine = app.registry.get(typeof value2.projectPath === \"string\" ? value2.projectPath : null) ?? app.registry.get(app.registry.defaultPath());\n      if (!engine)\n        return json4({ error: \"no project\" }, 404);\n      if (typeof value2.id !== \"string\" || !value2.id)\n        return json4({ error: \"id required\" }, 400);\n      let installed = yield* exports_Effect.either(exports_Effect.tryPromise({\n        try: () => engine.deps.skills.install(engine.root, value2.id),\n        catch: (error46) => error46 instanceof Error ? error46 : Error(String(error46))\n      }));\n      if (installed._tag === \"Left\")\n        return json4({ error: installed.left.message }, 400);\n      return app.features.track(\"skill.installed\"), engine.emitState(), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/skills/create",
+      "line": 255206,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), engine = app.registry.get(typeof value2.projectPath === \"string\" ? value2.projectPath : null) ?? app.registry.get(app.registry.defaultPath());\n      if (!engine)\n        return json4({ error: \"no project\" }, 404);\n      if (typeof value2.name !== \"string\" || typeof value2.prompt !== \"string\")\n        return json4({ error: \"name and prompt required\" }, 400);\n      try {\n        engine.deps.skills.create(engine.root, value2.name, value2.prompt);\n      } catch (error46) {\n        return json4({ error: error46.message }, 400);\n      }\n      return app.features.track(\"skill.created\"), engine.emitState(), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/skill/:name/restore",
+      "line": 255223,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), engine = app.registry.get(typeof value2.projectPath === \"string\" ? value2.projectPath : null) ?? app.registry.get(app.registry.defaultPath());\n      if (!engine)\n        return json4({ error: \"no project\" }, 404);\n      try {\n        engine.deps.skills.restore(engine.root, params.name);\n      } catch (error46) {\n        return json4({ error: error46.message }, 400);\n      }\n      return app.features.track(\"skill.restored\"), engine.emitState(), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/skill/:name/delete",
+      "line": 255238,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), engine = app.registry.get(typeof value2.projectPath === \"string\" ? value2.projectPath : null) ?? app.registry.get(app.registry.defaultPath());\n      if (!engine)\n        return json4({ error: \"no project\" }, 404);\n      try {\n        engine.deps.skills.delete(engine.root, params.name);\n      } catch (error46) {\n        return json4({ error: error46.message }, 400);\n      }\n      return app.features.track(\"skill.deleted\"), engine.emitState(), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/skill/:name",
+      "line": 255253,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), engine = app.registry.get(typeof value2.projectPath === \"string\" ? value2.projectPath : null) ?? app.registry.get(app.registry.defaultPath());\n      if (!engine)\n        return json4({ error: \"no project\" }, 404);\n      if (typeof value2.prompt !== \"string\")\n        return json4({ error: \"prompt required\" }, 400);\n      let scope5 = value2.scope === \"project\" || value2.scope === \"personal\" ? value2.scope : void 0;\n      try {\n        engine.deps.skills.save(engine.root, params.name, value2.prompt, scope5);\n      } catch (error46) {\n        return json4({ error: error46.message }, 400);\n      }\n      return app.features.track(\"skill.edited\"), engine.emitState(), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/telemetry/feature",
+      "line": 255585,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), feature = value2.feature;\n      if (!isDesktopFeature(feature) || !RENDERER_REPORTABLE_FEATURES.has(feature))\n        return json4({ error: \"unknown feature\" }, 400);\n      if (!withinBudget(Date.now()))\n        return json4({ ok: !0, dropped: !0 });\n      let props = { ...clampProps(value2.properties), source: \"renderer\" }, key2 = typeof value2.key === \"string\" ? value2.key.slice(0, MAX_DEDUPE_KEY_CHARS) : null;\n      if (key2)\n        app.features.trackOnce(feature, key2, props);\n      else\n        app.features.track(feature, props);\n      return json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/telemetry/funnel",
+      "line": 255602,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, event = funnelIngress.accept(yield* body2(req));\n      if (event) {\n        let { step: step4, state, ...properties } = event;\n        trackDesktopFunnel(app.analytics, step4, state, properties);\n      }\n      return json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/telemetry/ad-density",
+      "line": 255614,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, parsed = adDensitySchema.safeParse(yield* body2(req));\n      if (!parsed.success)\n        return json4({ error: \"invalid ad density\" }, 400);\n      let now2 = Date.now();\n      for (let [id3, at3] of densitySamples)\n        if (now2 - at3 >= DENSITY_DEDUPE_MS)\n          densitySamples.delete(id3);\n      if (densitySamples.has(parsed.data.sampleId))\n        return json4({ ok: !0 });\n      if (densityRecent = densityRecent.filter((at3) => now2 - at3 < WINDOW_MS2), densityRecent.length >= DENSITY_BUDGET_PER_MINUTE)\n        return json4({ ok: !0, dropped: !0 });\n      return densityRecent.push(now2), densitySamples.set(parsed.data.sampleId, now2), app.analytics.track(AD_DENSITY_EVENT, {\n        ...parsed.data,\n        source: \"renderer\"\n      }), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/telemetry/display-ad",
+      "line": 255635,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, parsed = parseDisplayAdEvent(yield* body2(req));\n      if (!parsed)\n        return json4({ error: \"invalid display ad event\" }, 400);\n      let now2 = Date.now();\n      if (displayAdRecent = displayAdRecent.filter((at3) => now2 - at3 < WINDOW_MS2), displayAdRecent.length >= DISPLAY_AD_BUDGET_PER_MINUTE)\n        return json4({ ok: !0, dropped: !0 });\n      return displayAdRecent.push(now2), app.analytics.track(parsed.event, { ...parsed.properties, source: \"renderer\" }), json4({ ok: !0 });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/threads",
+      "line": 255672,
+      "handler": "(req) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), dir = typeof value2.projectPath === \"string\" && value2.projectPath && value2.projectPath !== NO_FOLDER ? value2.projectPath : yield* exports_Effect.promise(() => ensureNoFolderProject(app.stateFile)), opened = yield* exports_Effect.promise(() => app.registry.ensure(dir));\n      if (!opened.ok)\n        return json4({ error: opened.error }, 400);\n      app.registry.markRecent(opened.path);\n      let engine = opened.engine, requestedId = value2.id;\n      if (requestedId !== void 0) {\n        if (typeof requestedId !== \"string\" || !THREAD_ID_RE.test(requestedId))\n          return json4({ error: \"invalid thread id\" }, 400);\n        if (engine.getThread(requestedId))\n          return json4({ error: \"thread already exists\" }, 409);\n      }\n      let byok2 = null;\n      if (value2.byok !== void 0 && value2.byok !== null) {\n        let candidate = value2.byok;\n        if (typeof candidate !== \"object\" || candidate === null || Array.isArray(candidate) || typeof candidate.connectionId !== \"string\" || !candidate.connectionId || typeof candidate.revision !== \"number\" || !Number.isInteger(candidate.revision) || candidate.revision <= 0 || candidate.scope !== void 0 && candidate.scope !== \"account\")\n          return json4({ error: \"invalid BYOK connection binding\" }, 400);\n        if (byok2 = {\n          connectionId: candidate.connectionId,\n          revision: candidate.revision,\n          ...candidate.scope === \"account\" ? { scope: \"account\" } : {}\n        }, byok2.scope === \"account\") {\n          if (!(yield* exports_Effect.promise(() => app.accountByok.isCurrent(byok2.connectionId, byok2.revision))))\n            return json4({ error: \"This account provider changed or is unavailable. Select it again.\" }, 409);\n        } else {\n          let current = yield* exports_Effect.either(exports_Effect.tryPromise({\n            try: () => app.byok.resolve({ id: byok2.connectionId, revision: byok2.revision }),\n            catch: () => \"BYOK connection unavailable or changed. Select a current connection.\"\n          }));\n          if (current._tag === \"Left\")\n            return json4({ error: current.left }, 409);\n        }\n      }\n      let inherited = !byok2 && value2.harnessId === void 0 && value2.model === void 0 ? inheritedAgent(engine, value2.inheritFromThreadId) ?? rememberedHostedPick(engine, app.stateFile.readUiPrefs().hostedModelPick) : null, harnessId = byok2 ? \"codebuff\" : value2.harnessId ?? inherited?.harnessId;\n      if (!byok2 && value2.harnessId !== void 0 && !isHarnessId(harnessId))\n        return json4({ error: \"invalid harnessId\" }, 400);\n      let model = byok2 ? void 0 : value2.model == null ? inherited?.model : String(value2.model);\n      if (model !== void 0 && (!harnessId || !isModelForHarness(harnessId, model, engine.deps.codexCatalog.get(), engine.deps.freebuffCatalog)))\n        return json4({ error: \"invalid model\" }, 400);\n      let effort = byok2 ? void 0 : value2.reasoningEffort === void 0 ? inherited?.reasoningEffort : value2.reasoningEffort;\n      if (effort !== void 0) {\n        if (!isReasoningEffort(effort))\n          return json4({ error: \"invalid effort\" }, 400);\n        if (!harnessId || !supportedEfforts(harnessId, model, engine.deps.codexCatalog.get(), engine.deps.freebuffCatalog)?.includes(effort))\n          return json4({ error: \"effort is not supported by the selected model\" }, 400);\n      }\n      let mode = value2.executionMode;\n      if (mode !== void 0 && mode !== \"local\" && mode !== \"worktree\")\n        return json4({ error: \"invalid execution mode\" }, 400);\n      let executionMode = mode ?? app.stateFile.readExecutionModePref(opened.path), sourceBranch = null;\n      if (executionMode === \"worktree\") {\n        let git = yield* exports_Effect.promise(() => engine.deps.gitState.state(opened.path));\n        if (git.gitMissing) {\n          if (mode !== void 0)\n            return json4({ error: gitMissingMessage() }, 400);\n          executionMode = \"local\";\n        } else if (!git.isGitRepo)\n          return json4({ error: noIsolatedWorkspaceMessage(git.enclosingRepoRoot) }, 400);\n        else\n          sourceBranch = typeof value2.sourceBranch === \"string\" && value2.sourceBranch ? value2.sourceBranch : null;\n      }\n      let id3 = typeof requestedId === \"string\" ? requestedId : crypto.randomUUID();\n      if (yield* exports_Effect.promise(() => engine.prepareLocalThreadDirectory(id3)), engine.getThread(id3))\n        return json4({ error: \"thread already exists\" }, 409);\n      let thread = engine.createThread({\n        draft: !0,\n        id: id3,\n        title: typeof value2.title === \"string\" ? value2.title : void 0,\n        harnessId,\n        model,\n        reasoningEffort: isReasoningEffort(effort) ? effort : void 0,\n        executionMode,\n        sourceBranch,\n        ...byok2 ? { byok: byok2 } : {},\n        missionEffort: clampMissionEffort(app.stateFile.readUiPrefs().missionEffort)\n      });\n      return json4(thread);\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/thread/:id",
+      "line": 255754,
+      "handler": "(_req, url2, params) => exports_Effect.gen(function* () {\n      let app = yield* App, owner = yield* exports_Effect.promise(() => ownerOf(app.registry, params.id, url2.searchParams.get(\"projectPath\")));\n      if (owner?.threads.get(params.id)?.executionTarget === \"cloud\")\n        yield* exports_Effect.promise(async () => {\n          await app.cloudSync?.syncThread(params.id);\n        });\n      if (owner)\n        yield* exports_Effect.promise(() => owner.restoreThreadReceipt(params.id));\n      let paged = url2.searchParams.get(\"page\") === \"true\", before2 = url2.searchParams.get(\"before\"), after3 = url2.searchParams.get(\"after\");\n      if (before2 !== null && after3 !== null || [before2, after3].some((v11) => v11 !== null && (!Number.isSafeInteger(Number(v11)) || Number(v11) <= 0)))\n        return json4({ error: \"invalid history cursor\" }, 400);\n      let snapshot = owner?.threadSnapshot(params.id, paged ? {\n        ...before2 !== null ? { before: Number(before2) } : {},\n        ...after3 !== null ? { after: Number(after3) } : {}\n      } : void 0);\n      return snapshot ? json4(snapshot) : json4({ error: \"not found\" }, 404);\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/thread/:id/prompt-history",
+      "line": 255775,
+      "handler": "(_req, url2, params) => exports_Effect.gen(function* () {\n      let before2 = url2.searchParams.get(\"before\"), after3 = url2.searchParams.get(\"after\");\n      if (before2 !== null && after3 !== null || [before2, after3].some((v11) => v11 !== null && (!Number.isSafeInteger(Number(v11)) || Number(v11) <= 0)))\n        return json4({ error: \"invalid history cursor\" }, 400);\n      let app = yield* App, owner = yield* exports_Effect.promise(() => ownerOf(app.registry, params.id, url2.searchParams.get(\"projectPath\")));\n      if (!owner?.getThread(params.id))\n        return json4({ error: \"not found\" }, 404);\n      return json4({ entry: owner.messages.recallPrompt(params.id, {\n        ...before2 !== null ? { before: Number(before2) } : {},\n        ...after3 !== null ? { after: Number(after3) } : {}\n      }) });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/thread/:id/mission-receipts",
+      "line": 255791,
+      "handler": "(_req, url2, params) => exports_Effect.gen(function* () {\n      let app = yield* App, receipts = (yield* exports_Effect.promise(() => ownerOf(app.registry, params.id, url2.searchParams.get(\"projectPath\"))))?.listAutoRunReceipts(params.id);\n      return receipts ? json4({ receipts }) : json4({ error: \"not found\" }, 404);\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/thread/:id/cloud-panel",
+      "line": 255799,
+      "handler": "(_req, url2, params) => exports_Effect.gen(function* () {\n      let owner = (yield* App).registry.forThread(params.id);\n      if (!owner)\n        return json4({ error: \"thread not found\" }, 404);\n      return yield* exports_Effect.promise(async () => {\n        try {\n          return json4(await owner.cloudPanel(params.id, method === \"POST\", url2.searchParams.get(\"open\") === \"1\", url2.searchParams.get(\"generation\") ?? void 0));\n        } catch (error46) {\n          return json4({ error: error46 instanceof Error ? error46.message : \"Cloud panel unavailable\" }, 409);\n        }\n      });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/thread/:id/cloud-panel",
+      "line": 255799,
+      "handler": "(_req, url2, params) => exports_Effect.gen(function* () {\n      let owner = (yield* App).registry.forThread(params.id);\n      if (!owner)\n        return json4({ error: \"thread not found\" }, 404);\n      return yield* exports_Effect.promise(async () => {\n        try {\n          return json4(await owner.cloudPanel(params.id, method === \"POST\", url2.searchParams.get(\"open\") === \"1\", url2.searchParams.get(\"generation\") ?? void 0));\n        } catch (error46) {\n          return json4({ error: error46 instanceof Error ? error46.message : \"Cloud panel unavailable\" }, 409);\n        }\n      });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/thread/:id/files",
+      "line": 255815,
+      "handler": "(_req, url2, params) => exports_Effect.gen(function* () {\n      let owner = (yield* App).registry.forThread(params.id);\n      if (!owner)\n        return json4({ error: \"thread not found\" }, 404);\n      let result2 = yield* exports_Effect.promise(() => owner.listFilesResult(params.id, void 0, url2.searchParams.get(\"directory\") ?? void 0, url2.searchParams.get(\"query\") ?? void 0));\n      return json4(result2);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/thread/:id/files",
+      "line": 255826,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), owner = app.registry.forThread(params.id);\n      if (!owner)\n        return json4({ error: \"thread not found\" }, 404);\n      if (owner.getThread(params.id)?.sponsored)\n        return json4({ error: SPONSORED_THREAD_REFUSAL }, 409);\n      if (typeof value2.path !== \"string\" || !value2.path || value2.kind !== \"file\" && value2.kind !== \"directory\")\n        return json4({ error: \"path and kind required\" }, 400);\n      let result2 = yield* exports_Effect.promise(() => owner.createThreadEntry(params.id, value2.path, value2.kind));\n      return result2.ok ? json4(result2) : json4({ error: result2.error }, 400);\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/thread/:id/file-download",
+      "line": 255841,
+      "handler": "(req, url2, params) => exports_Effect.gen(function* () {\n      let owner = (yield* App).registry.forThread(params.id);\n      if (!owner)\n        return json4({ error: \"thread not found\" }, 404);\n      let path36 = url2.searchParams.get(\"path\");\n      if (!path36)\n        return json4({ error: \"path required\" }, 400);\n      return yield* exports_Effect.promise(async () => {\n        try {\n          return await owner.downloadThreadFile(params.id, path36, req.signal);\n        } catch (error46) {\n          return json4({ error: error46 instanceof Error ? error46.message : \"Could not download file\" }, 400);\n        }\n      });\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/thread/:id/file",
+      "line": 255860,
+      "handler": "(_req, url2, params) => exports_Effect.gen(function* () {\n      let app = yield* App, owner = yield* exports_Effect.promise(() => ownerOf(app.registry, params.id, url2.searchParams.get(\"projectPath\")));\n      if (!owner)\n        return json4({ error: \"thread not found\" }, 404);\n      let path36 = url2.searchParams.get(\"path\");\n      if (!path36)\n        return json4({ error: \"path required\" }, 400);\n      let expanded = url2.searchParams.get(\"expanded\") === \"true\", result2 = yield* exports_Effect.promise(() => owner.readThreadFile(params.id, path36, expanded));\n      return result2.ok || result2.canExpand ? json4(result2) : json4({ error: result2.error }, 400);\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/thread/:id/file",
+      "line": 255874,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, value2 = yield* body2(req), owner = yield* exports_Effect.promise(() => ownerOf(app.registry, params.id, value2.projectPath));\n      if (!owner)\n        return json4({ error: \"thread not found\" }, 404);\n      if (owner.getThread(params.id)?.sponsored)\n        return json4({ error: SPONSORED_THREAD_REFUSAL }, 409);\n      let { path: path36, content, expectedRevision } = value2;\n      if (typeof path36 !== \"string\" || !path36)\n        return json4({ error: \"path required\" }, 400);\n      if (typeof content !== \"string\")\n        return json4({ error: \"content required\" }, 400);\n      if (typeof expectedRevision !== \"string\" || !expectedRevision)\n        return json4({ error: \"expectedRevision required\" }, 400);\n      let result2 = yield* exports_Effect.promise(() => owner.writeThreadFile(params.id, path36, content, expectedRevision));\n      return result2.ok ? json4(result2) : json4({ error: result2.error }, result2.conflict ? 409 : 400);\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/thread/:id/pull-request",
+      "line": 255894,
+      "handler": "(_req, _url3, params) => exports_Effect.gen(function* () {\n      let owner = (yield* App).registry.forThread(params.id);\n      if (!owner)\n        return json4({ error: \"thread not found\" }, 404);\n      return json4(yield* exports_Effect.promise(() => owner.deliveries.pullRequestStatus(params.id)));\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/thread/:id/changes",
+      "line": 255904,
+      "handler": "(_req, url2, params) => exports_Effect.gen(function* () {\n      let owner = (yield* App).registry.forThread(params.id);\n      if (!owner)\n        return json4({ error: \"thread not found\" }, 404);\n      let scope5 = url2.searchParams.get(\"scope\") === \"uncommitted\" ? \"uncommitted\" : \"all\";\n      return json4(yield* exports_Effect.promise(() => owner.changesSummary(params.id, scope5)));\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/thread/:id/changes/diff",
+      "line": 255915,
+      "handler": "(_req, url2, params) => exports_Effect.gen(function* () {\n      let owner = (yield* App).registry.forThread(params.id);\n      if (!owner)\n        return json4({ error: \"thread not found\" }, 404);\n      let scope5 = url2.searchParams.get(\"scope\") === \"uncommitted\" ? \"uncommitted\" : \"all\", diff9 = yield* exports_Effect.promise(() => owner.threadFileDiff(params.id, url2.searchParams.get(\"file\") ?? \"\", scope5, isTrue2(url2.searchParams.get(\"untracked\"))));\n      return \"error\" in diff9 ? json4(diff9, 400) : json4(diff9);\n    })"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/thread/:id/attachment",
+      "line": 255926,
+      "handler": "(_req, url2, params) => exports_Effect.gen(function* () {\n      let owner = (yield* App).registry.forThread(params.id);\n      if (!owner)\n        return json4({ error: \"thread not found\" }, 404);\n      let path36 = url2.searchParams.get(\"path\");\n      if (!path36)\n        return json4({ error: \"path required\" }, 400);\n      let attached = owner.threadSnapshot(params.id).messages.some((m8) => m8.attachments?.some((a) => a.path === path36)), queued = owner.queue.listVisible(params.id).some((i11) => i11.attachments?.some((a) => a.path === path36));\n      if (!attached && !queued)\n        return json4({ error: \"not attached\" }, 404);\n      let mediaType = IMAGE_MEDIA_TYPES[extname6(path36).toLowerCase()];\n      if (!mediaType)\n        return json4({ error: \"not an image\" }, 415);\n      let file2 = Bun.file(path36);\n      if (!(yield* exports_Effect.promise(() => file2.exists())))\n        return json4({ error: \"missing\" }, 404);\n      if (file2.size > MAX_ATTACHMENT_PREVIEW_BYTES)\n        return json4({ error: \"too large\" }, 413);\n      return new Response(file2, {\n        headers: {\n          \"content-type\": mediaType,\n          \"cache-control\": \"private, max-age=60\",\n          \"content-security-policy\": \"default-src 'none'; style-src 'unsafe-inline'; sandbox\",\n          \"x-content-type-options\": \"nosniff\"\n        }\n      });\n    })"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/thread/:id/*action",
+      "line": 255957,
+      "handler": "(req, _url3, params) => threadAction(req, params.id, params.action)"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/queue/:itemId/:action",
+      "line": 255962,
+      "handler": "(req, _url3, params) => exports_Effect.gen(function* () {\n      let app = yield* App, engine = app.registry.forItem(params.itemId);\n      if (!engine)\n        return json4({ error: \"item not found\" }, 404);\n      let threadId = engine.queue.threadOf(params.itemId), owner = engine.getThread(threadId);\n      if (owner?.sponsored)\n        return json4({ error: SPONSORED_THREAD_REFUSAL }, 409);\n      if (owner?.status !== \"open\" && params.action !== \"delete\")\n        return json4({ error: \"thread is closed\" }, 409);\n      let value2 = yield* body2(req);\n      switch (params.action) {\n        case \"edit\": {\n          let prompt = String(value2.prompt ?? \"\");\n          if (prompt.length > MAX_USER_PROMPT_CHARS)\n            return json4({ error: promptTooLongError(prompt.length) }, 413);\n          if (!engine.editItem(params.itemId, prompt))\n            return json4({ error: \"item is not queued\" }, 409);\n          return app.features.track(\"queue.item_edited\"), json4({ ok: !0 });\n        }\n        case \"delete\": {\n          if (!engine.deleteItem(params.itemId))\n            return json4({ error: \"item is not queued\" }, 409);\n          return app.features.track(\"queue.item_deleted\"), json4({ ok: !0 });\n        }\n        case \"send-now\": {\n          let result2 = yield* run4(engine.sendNow(params.itemId));\n          if (!(\"ok\" in result2))\n            return json4({ error: result2.message }, statusFor(result2));\n          return app.features.track(\"queue.item_sent_now\"), json4(result2);\n        }\n        default:\n          return json4({ error: `unknown action ${params.action}` }, 400);\n      }\n    })"
+    }
+  ],
+  "threadActions": [
+    {
+      "action": "cloud/handoff",
+      "line": 256071,
+      "implementation": "case \"cloud/handoff\":\n        if (current?.coordinator)\n          return json4({ error: \"The project coordinator runs on this computer and cannot move to Cloud.\" }, 409);\n        return yield* exports_Effect.promise(async () => {\n          try {\n            return json4({ thread: await handoffToCloud(engine, threadId, cloudAuth) });\n          } catch (error46) {\n            return json4({ error: error46 instanceof Error ? error46.message : \"Could not move this chat to Cloud\" }, 409);\n          }\n        });"
+    },
+    {
+      "action": "cloud/continue-local",
+      "line": 256081,
+      "implementation": "case \"cloud/continue-local\":\n        return yield* exports_Effect.promise(async () => {\n          try {\n            return json4({ thread: await handoffToLocal(engine, threadId, cloudAuth) });\n          } catch (error46) {\n            return json4({ error: error46 instanceof Error ? error46.message : \"Could not continue this chat on this computer\" }, 409);\n          }\n        });"
+    },
+    {
+      "action": "cloud/keep-local",
+      "line": 256089,
+      "implementation": "case \"cloud/keep-local\":\n        return yield* exports_Effect.promise(async () => {\n          try {\n            return json4({ thread: await keepChatLocal(engine, threadId, cloudAuth) });\n          } catch (error46) {\n            return json4({ error: error46 instanceof Error ? error46.message : \"Could not keep this chat on this computer\" }, 409);\n          }\n        });"
+    },
+    {
+      "action": "message",
+      "line": 256097,
+      "implementation": "case \"message\":"
+    },
+    {
+      "action": "edit-message",
+      "line": 256098,
+      "implementation": "case \"edit-message\": {\n        let text7 = value2.text == null ? \"\" : String(value2.text), attachments = Array.isArray(value2.attachments) ? value2.attachments.map(String) : [];\n        if (!text7.trim() && attachments.length === 0)\n          return json4({ error: \"text or attachments required\" }, 400);\n        if (text7.length > MAX_USER_PROMPT_CHARS)\n          return json4({ error: promptTooLongError(text7.length) }, 413);\n        if (action === \"message\") {\n          let result3 = yield* run4(engine.postMessage(threadId, text7, attachments));\n          return \"ok\" in result3 ? json4(result3) : json4({ error: result3.message }, statusFor(result3));\n        }\n        if (!Number.isInteger(value2.index) || value2.index < 0)\n          return json4({ error: \"index must be a non-negative integer\" }, 400);\n        let result2 = yield* run4(engine.editMessage(threadId, value2.index, text7, attachments, value2.replacing == null ? void 0 : String(value2.replacing)));\n        if (!(\"ok\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        if (app.features.track(\"composer.message_edited\"), result2.reverted)\n          app.features.track(\"turn.reverted\", { files: countBucket(result2.reverted) });\n        return json4(result2);\n      }"
+    },
+    {
+      "action": "rewind",
+      "line": 256117,
+      "implementation": "case \"rewind\": {\n        if (!Number.isInteger(value2.index) || value2.index < 0)\n          return json4({ error: \"index must be a non-negative integer\" }, 400);\n        let result2 = yield* run4(engine.rewindTo(threadId, value2.index, value2.replacing == null ? void 0 : String(value2.replacing)));\n        if (!(\"ok\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        if (result2.reverted)\n          app.features.track(\"turn.reverted\", {\n            files: countBucket(result2.reverted)\n          });\n        return json4(result2);\n      }"
+    },
+    {
+      "action": "stop",
+      "line": 256129,
+      "implementation": "case \"stop\":\n        if (engine.stopTurn(threadId), engine.threads.get(threadId)?.executionTarget === \"cloud\") {\n          let result2 = yield* run4(exports_Effect.tryPromise({\n            try: () => engine.updateCloudMission(threadId, { on: !1 }),\n            catch: (error46) => new Conflict({ message: error46 instanceof Error ? error46.message : String(error46) })\n          }));\n          if (result2 && \"message\" in result2)\n            return json4({ error: result2.message }, statusFor(result2));\n        }\n        return app.features.track(\"turn.stopped\"), json4({ ok: !0 });"
+    },
+    {
+      "action": "queue/pause",
+      "line": 256139,
+      "implementation": "case \"queue/pause\":\n        return engine.pauseQueue(threadId), app.features.track(\"queue.paused\"), json4({ ok: !0 });"
+    },
+    {
+      "action": "resume",
+      "line": 256141,
+      "implementation": "case \"resume\":\n        return engine.resumeQueue(threadId), app.features.track(\"turn.resumed\"), json4({ ok: !0 });"
+    },
+    {
+      "action": "compact",
+      "line": 256143,
+      "implementation": "case \"compact\": {\n        let result2 = yield* run4(engine.compactContext(threadId));\n        if (!(\"status\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        return app.features.track(\"thread.context_compacted\", { status: result2.status }), json4(result2);\n      }"
+    },
+    {
+      "action": "freebuff/take-slot",
+      "line": 256149,
+      "implementation": "case \"freebuff/take-slot\": {\n        let result2 = yield* run4(engine.takeFreebuffSlot(threadId));\n        if (!(\"ok\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        return app.features.track(\"session.slot_taken_over\"), json4(result2);\n      }"
+    },
+    {
+      "action": "dismiss-brief",
+      "line": 256155,
+      "implementation": "case \"dismiss-brief\": {\n        let kind = value2.kind;\n        if (!isBriefKind(kind))\n          return json4({ error: \"invalid brief kind\" }, 400);\n        return engine.dismissBrief(threadId, kind), app.features.track(\"turn.brief_dismissed\", { kind }), json4({ ok: !0 });\n      }"
+    },
+    {
+      "action": "browser",
+      "line": 256161,
+      "implementation": "case \"browser\":\n        return yield* exports_Effect.promise(async () => {\n          try {\n            return json4(await engine.browsers.action(threadId, value2));\n          } catch (error46) {\n            if (error46 instanceof BrowserClosedError && error46.expected)\n              return json4({ error: error46.message, browserClosed: error46.reason }, 409);\n            return json4({ error: error46 instanceof Error ? error46.message : \"Browser action failed\" }, 400);\n          }\n        });"
+    },
+    {
+      "action": "preview/stop",
+      "line": 256171,
+      "implementation": "case \"preview/stop\":\n        return yield* exports_Effect.promise(() => engine.stopPreview(threadId)), app.features.track(\"preview.stopped\"), json4({ ok: !0 });"
+    },
+    {
+      "action": "preview/webcontents",
+      "line": 256173,
+      "implementation": "case \"preview/webcontents\": {\n        let webContentsId = value2.webContentsId;\n        if (webContentsId !== null && !Number.isInteger(webContentsId))\n          return json4({ error: \"webContentsId must be an integer or null\" }, 400);\n        return engine.setPreviewWebContents(threadId, webContentsId), json4({ ok: !0 });\n      }"
+    },
+    {
+      "action": "queue/close-tab",
+      "line": 256179,
+      "implementation": "case \"queue/close-tab\":\n        try {\n          let item = engine.enqueueCloseTab(threadId);\n          return app.features.track(\"queue.close_tab_enqueued\"), json4(item);\n        } catch (error46) {\n          return json4({ error: error46 instanceof Error ? error46.message : \"thread is closing\" }, 409);\n        }"
+    },
+    {
+      "action": "close",
+      "line": 256186,
+      "implementation": "case \"close\": {\n        let wasOpen = engine.getThread(threadId)?.status === \"open\", result2 = yield* run4(engine.closeThread(threadId));\n        if (!(\"id\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        let workspace = app.stateFile.readWorkspace();\n        if (workspace?.windows.some((window2) => window2.id === threadId))\n          app.stateFile.writeWorkspace({\n            ...workspace,\n            windows: workspace.windows.filter((window2) => window2.id !== threadId)\n          });\n        if (wasOpen)\n          app.features.track(\"thread.closed\");\n        return json4({ ok: !0, thread: result2 });\n      }"
+    },
+    {
+      "action": "delete",
+      "line": 256200,
+      "implementation": "case \"delete\": {\n        let result2 = yield* exports_Effect.either(engine.deleteThread(threadId));\n        if (result2._tag === \"Left\")\n          return json4({ error: result2.left.message }, statusFor(result2.left));\n        return app.features.track(\"thread.deleted\"), json4({ ok: !0 });\n      }"
+    },
+    {
+      "action": "rename",
+      "line": 256206,
+      "implementation": "case \"rename\": {\n        let result2 = yield* run4(engine.renameThread(threadId, String(value2.title ?? \"\")));\n        if (!(\"id\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        return app.features.track(\"thread.renamed\"), json4({ ok: !0, thread: result2 });\n      }"
+    },
+    {
+      "action": "fork",
+      "line": 256212,
+      "implementation": "case \"fork\": {\n        if (!Number.isInteger(value2.index) || Number(value2.index) < 0)\n          return json4({ error: \"index must be a non-negative integer\" }, 400);\n        if (typeof value2.requestId !== \"string\" || !value2.requestId || value2.requestId.length > 128)\n          return json4({ error: \"requestId required\" }, 400);\n        let result2 = yield* run4(engine.forkThread(threadId, Number(value2.index), value2.requestId));\n        if (!(\"thread\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        return app.features.track(\"thread.forked\"), json4(result2);\n      }"
+    },
+    {
+      "action": "side/open",
+      "line": 256222,
+      "implementation": "case \"side/open\":"
+    },
+    {
+      "action": "side/message",
+      "line": 256223,
+      "implementation": "case \"side/message\":"
+    },
+    {
+      "action": "side/stop",
+      "line": 256224,
+      "implementation": "case \"side/stop\":"
+    },
+    {
+      "action": "side/close",
+      "line": 256225,
+      "implementation": "case \"side/close\": {\n        let sideChatId = typeof value2.sideChatId === \"string\" ? value2.sideChatId : \"\";\n        if (!sideChatId)\n          return json4({ error: \"sideChatId required\" }, 400);\n        let sideChats = engine.sideChats, result2 = yield* exports_Effect.promise(async () => {\n          try {\n            if (action === \"side/open\") {\n              let sideChat = await sideChats.open(threadId, sideChatId);\n              if (sideChat.status !== \"error\")\n                app.features.track(\"side_chat.opened\", { harness: sideChat.harnessId });\n              return { sideChat };\n            }\n            if (action === \"side/message\") {\n              let text7 = value2.text == null ? \"\" : String(value2.text);\n              if (text7.length > MAX_USER_PROMPT_CHARS)\n                return { error: promptTooLongError(text7.length), status: 413 };\n              if (value2.model != null && typeof value2.model !== \"string\")\n                return { error: \"invalid model\", status: 400 };\n              if (value2.effort != null && !isReasoningEffort(value2.effort))\n                return { error: \"invalid effort\", status: 400 };\n              let sideChat = await sideChats.send(threadId, sideChatId, {\n                text: text7,\n                attachments: Array.isArray(value2.attachments) ? value2.attachments.map(String) : [],\n                ...value2.model !== void 0 ? { model: value2.model } : {},\n                ...value2.effort !== void 0 ? { effort: value2.effort } : {}\n              });\n              return app.features.track(\"side_chat.sent\", { harness: sideChat.harnessId }), { sideChat };\n            }\n            if (action === \"side/stop\")\n              sideChats.stop(threadId, sideChatId);\n            else\n              await sideChats.close(threadId, sideChatId);\n            return { ok: !0 };\n          } catch (err2) {\n            if (err2 instanceof SideChatError)\n              return { error: err2.message, status: err2.status };\n            throw err2;\n          }\n        });\n        return \"error\" in result2 ? json4({ error: result2.error }, result2.status) : json4(result2);\n      }"
+    },
+    {
+      "action": "archive",
+      "line": 256266,
+      "implementation": "case \"archive\": {\n        if (typeof value2.archived !== \"boolean\")\n          return json4({ error: \"archived must be a boolean\" }, 400);\n        let result2 = yield* run4(engine.setThreadArchived(threadId, value2.archived));\n        if (!(\"id\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        return json4({ ok: !0, thread: result2 });\n      }"
+    },
+    {
+      "action": "attention/ack",
+      "line": 256274,
+      "implementation": "case \"attention/ack\": {\n        if (!Number.isInteger(value2.throughRevision) || Number(value2.throughRevision) < 0)\n          return json4({ error: \"throughRevision must be a non-negative integer\" }, 400);\n        let result2 = yield* run4(engine.acknowledgeAttention(threadId, Number(value2.throughRevision)));\n        if (!(\"id\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        return json4({ ok: !0, thread: result2 });\n      }"
+    },
+    {
+      "action": "agent",
+      "line": 256282,
+      "implementation": "case \"agent\": {\n        if (!isHarnessId(value2.harnessId))\n          return json4({ error: \"invalid harnessId\" }, 400);\n        let model = value2.model == null ? void 0 : String(value2.model);\n        if (model !== void 0 && !isModelForHarness(value2.harnessId, model, engine.deps.codexCatalog.get(), engine.deps.freebuffCatalog) && !(value2.harnessId !== \"codebuff\" && isCloudCliModel(value2.harnessId, model)))\n          return json4({ error: \"invalid model\" }, 400);\n        let result2 = yield* run4(engine.setAgent(threadId, value2.harnessId, model));\n        if (\"thread\" in result2 && model !== void 0 && !result2.rejected)\n          rememberHostedPick(app.stateFile, engine, result2.thread);\n        return \"thread\" in result2 ? json4({ ok: !0, model: result2.model, rejected: result2.rejected || void 0 }) : json4({ error: result2.message }, statusFor(result2));\n      }"
+    },
+    {
+      "action": "byok",
+      "line": 256293,
+      "implementation": "case \"byok\": {\n        let binding = value2.connectionId === null ? null : typeof value2.connectionId === \"string\" && Number.isInteger(value2.revision) && typeof value2.revision === \"number\" && value2.revision > 0 && (value2.scope === void 0 || value2.scope === \"account\") ? {\n          connectionId: value2.connectionId,\n          revision: value2.revision,\n          ...value2.scope === \"account\" ? { scope: \"account\" } : {}\n        } : void 0;\n        if (binding === void 0)\n          return json4({ error: \"connectionId and revision required\" }, 400);\n        if (binding?.scope === \"account\") {\n          if (!(yield* exports_Effect.promise(() => app.accountByok.isCurrent(binding.connectionId, binding.revision))))\n            return json4({ error: \"This account provider changed or is unavailable. Select it again.\" }, 409);\n        } else if (binding) {\n          let resolved = yield* exports_Effect.either(exports_Effect.tryPromise({\n            try: () => app.byok.resolve({ id: binding.connectionId, revision: binding.revision }),\n            catch: () => \"BYOK connection unavailable or changed. Select a current connection.\"\n          }));\n          if (resolved._tag === \"Left\")\n            return json4({ error: resolved.left }, 409);\n        }\n        let result2 = yield* run4(engine.setByok(threadId, binding));\n        return \"id\" in result2 ? json4({ ok: !0, thread: result2 }) : json4({ error: result2.message }, statusFor(result2));\n      }"
+    },
+    {
+      "action": "agent-mode",
+      "line": 256315,
+      "implementation": "case \"agent-mode\": {\n        if (value2.mode !== \"build\" && value2.mode !== \"plan\")\n          return json4({ error: \"invalid agent mode\" }, 400);\n        let result2 = yield* run4(engine.setAgentMode(threadId, value2.mode));\n        if (!(\"id\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        return app.features.track(\"thread.agent_mode_set\", { mode: value2.mode }), json4({ ok: !0, thread: result2 });\n      }"
+    },
+    {
+      "action": "mission",
+      "line": 256323,
+      "implementation": "case \"mission\": {\n        if (typeof value2.on !== \"boolean\")\n          return json4({ error: \"on must be a boolean\" }, 400);\n        let result2 = yield* run4(engine.setMissionOn(threadId, value2.on));\n        if (!(\"id\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        return app.features.track(\"thread.auto_run_set\", { on: value2.on }), json4({ ok: !0, thread: result2 });\n      }"
+    },
+    {
+      "action": "mission-effort",
+      "line": 256331,
+      "implementation": "case \"mission-effort\": {\n        let effort = clampMissionEffort(value2.effort), result2 = yield* run4(engine.setMissionEffort(threadId, effort));\n        if (!(\"id\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        return app.stateFile.writeUiPrefs({ missionEffort: effort }), app.features.trackOnce(\"thread.auto_run_effort_set\", threadId, { effort }), json4({ ok: !0, thread: result2 });\n      }"
+    },
+    {
+      "action": "mission-prompt",
+      "line": 256337,
+      "implementation": "case \"mission-prompt\": {\n        if (typeof value2.prompt !== \"string\")\n          return json4({ error: \"prompt must be a string\" }, 400);\n        if (value2.prompt.length > MAX_MISSION_PROMPT_CHARS)\n          return json4({ error: `prompt must be at most ${MAX_MISSION_PROMPT_CHARS} characters` }, 400);\n        let result2 = yield* run4(engine.setMissionPrompt(threadId, value2.prompt));\n        if (!(\"id\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        return app.features.trackOnce(\"thread.mission_prompt_set\", threadId, {\n          preset: missionPresetKey(result2.missionPrompt),\n          chars: countBucket(result2.missionPrompt.length)\n        }), json4({ ok: !0, thread: result2 });\n      }"
+    },
+    {
+      "action": "effort",
+      "line": 256350,
+      "implementation": "case \"effort\": {\n        let effort = value2.effort == null ? null : value2.effort;\n        if (effort !== null && !isReasoningEffort(effort))\n          return json4({ error: \"invalid effort\" }, 400);\n        let result2 = yield* run4(engine.setEffort(threadId, effort));\n        if (!(\"id\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        if (rememberHostedPick(app.stateFile, engine, result2), effort)\n          app.features.track(\"thread.effort_changed\", { effort });\n        return json4({ ok: !0, thread: result2 });\n      }"
+    },
+    {
+      "action": "queue",
+      "line": 256361,
+      "implementation": "case \"queue\": {\n        let prompt = value2.text == null ? \"\" : String(value2.text), attachments = Array.isArray(value2.attachments) ? value2.attachments.map(String) : [];\n        if (!prompt.trim() && attachments.length === 0 && value2.mission == null)\n          return json4({ error: \"text or attachments required\" }, 400);\n        if (prompt.length > MAX_USER_PROMPT_CHARS)\n          return json4({ error: promptTooLongError(prompt.length) }, 413);\n        let mission;\n        if (value2.mission != null) {\n          let candidate = value2.mission;\n          if (typeof candidate.prompt !== \"string\" || !candidate.prompt.trim() || candidate.prompt.length > MAX_MISSION_PROMPT_CHARS || ![1, 2, 3, 4, 5].includes(candidate.effort) || value2.now === !0)\n            return json4({ error: \"invalid mission configuration\" }, 400);\n          mission = { prompt: candidate.prompt.trim(), effort: clampMissionEffort(candidate.effort) };\n        }\n        let now2 = value2.now === !0, result2 = yield* run4(engine.enqueuePrompt(threadId, prompt, {\n          label: typeof value2.label === \"string\" ? value2.label : void 0,\n          attachmentPaths: attachments,\n          mission,\n          now: now2\n        }));\n        if (!(\"id\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        if (now2)\n          app.features.track(\"composer.sent_now\");\n        return json4(result2);\n      }"
+    },
+    {
+      "action": "queue/suggestion",
+      "line": 256386,
+      "implementation": "case \"queue/suggestion\": {\n        let prompt = value2.prompt == null ? \"\" : String(value2.prompt);\n        if (!prompt.trim())\n          return json4({ error: \"prompt required\" }, 400);\n        if (prompt.length > MAX_USER_PROMPT_CHARS)\n          return json4({ error: promptTooLongError(prompt.length) }, 413);\n        let result2 = yield* run4(engine.enqueuePrompt(threadId, prompt, {\n          label: typeof value2.label === \"string\" ? value2.label : void 0,\n          source: \"assistant\"\n        }));\n        if (!(\"id\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        return app.features.track(\"composer.suggested_prompt_clicked\"), json4(result2);\n      }"
+    },
+    {
+      "action": "queue/skill",
+      "line": 256400,
+      "implementation": "case \"queue/skill\": {\n        let name36 = String(value2.name ?? \"\"), result2 = yield* run4(engine.enqueueSkill(threadId, name36));\n        if (!(\"id\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        if (name36 !== PREVIEW_SKILL_NAME)\n          app.features.track(\"queue.skill_enqueued\", { skill: trackedSkill(name36) });\n        return json4(result2);\n      }"
+    },
+    {
+      "action": "skill",
+      "line": 256408,
+      "implementation": "case \"skill\": {\n        let name36 = String(value2.name ?? \"\"), result2 = yield* run4(engine.runSkill(threadId, name36));\n        if (!(\"ok\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        if (name36 !== PREVIEW_SKILL_NAME)\n          app.features.track(\"skill.run\", { skill: trackedSkill(name36) });\n        return json4(result2);\n      }"
+    },
+    {
+      "action": "skill/insert",
+      "line": 256416,
+      "implementation": "case \"skill/insert\": {\n        let name36 = String(value2.name ?? \"\"), result2 = yield* run4(engine.insertSkill(threadId, name36));\n        if (!(\"ok\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        return app.features.track(\"skill.inserted\", {\n          skill: trackedSkill(name36),\n          running: result2.running\n        }), json4(result2);\n      }"
+    },
+    {
+      "action": "reorder",
+      "line": 256425,
+      "implementation": "case \"reorder\": {\n        if (!engine.reorderItem(threadId, String(value2.itemId ?? \"\"), value2.afterItemId ? String(value2.afterItemId) : null))\n          return json4({ error: \"item is not queued\" }, 409);\n        return app.features.track(\"queue.item_reordered\"), json4({ ok: !0 });\n      }"
+    },
+    {
+      "action": "source-branch",
+      "line": 256430,
+      "implementation": "case \"source-branch\": {\n        let result2 = yield* run4(engine.setSourceBranch(threadId, String(value2.branch ?? \"\")));\n        if (!(\"id\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        return app.features.track(\"thread.source_branch_set\"), json4({ ok: !0, thread: result2 });\n      }"
+    },
+    {
+      "action": "execution-target",
+      "line": 256436,
+      "implementation": "case \"execution-target\": {\n        if (value2.target !== \"local\" && value2.target !== \"cloud\")\n          return json4({ error: \"invalid execution target\" }, 400);\n        let result2 = yield* run4(engine.setExecutionTarget(threadId, value2.target));\n        if (!(\"id\" in result2))\n          return json4({ error: result2.message }, statusFor(result2));\n        return json4({ ok: !0, thread: result2 });\n      }"
+    },
+    {
+      "action": "execution-mode",
+      "line": 256444,
+      "implementation": "case \"execution-mode\": {\n        if (value2.mode !== \"local\" && value2.mode !== \"worktree\")\n          return json4({ error: \"invalid execution mode\" }, 400);\n        let result2 = yield* run4(engine.setExecutionMode(threadId, value2.mode));\n        if (\"id\" in result2)\n          return app.stateFile.writeExecutionModePref(engine.root, value2.mode), app.features.track(\"thread.execution_mode_set\", { mode: value2.mode }), json4({ ok: !0, thread: result2 });\n        return json4({ error: result2.message }, statusFor(result2));\n      }"
+    },
+    {
+      "action": "bring",
+      "line": 256452,
+      "implementation": "case \"bring\": {\n        let result2 = yield* exports_Effect.promise(() => engine.bringToSource(threadId));\n        return app.features.track(\"changes.brought_to_source\", { ok: result2.ok }), json4(result2);\n      }"
+    }
+  ],
+  "bridge": [
+    {
+      "name": "platform",
+      "line": 11,
+      "implementation": "platform: process.platform"
+    },
+    {
+      "name": "browserData",
+      "line": 12,
+      "implementation": "browserData: (request) => ipcRenderer.invoke('browser:data', request)"
+    },
+    {
+      "name": "prepareBrowserProfile",
+      "line": 13,
+      "implementation": "prepareBrowserProfile: (partition) => ipcRenderer.invoke('browser:prepare-profile', partition)"
+    },
+    {
+      "name": "onBrowserAddress",
+      "line": 14,
+      "implementation": "onBrowserAddress: (handler) => {\r\n    const listener = (_event, id) => handler(id)\r\n    ipcRenderer.on('browser:focus-address', listener)\r\n    return () => ipcRenderer.removeListener('browser:focus-address', listener)\r\n  }"
+    },
+    {
+      "name": "customTitleBar",
+      "line": 23,
+      "implementation": "customTitleBar: (process.argv || []).includes('--custom-title-bar=1')"
+    },
+    {
+      "name": "apiToken",
+      "line": 32,
+      "implementation": "apiToken: () => {\r\n    try {\r\n      return ipcRenderer.sendSync('freebuff:apiToken') ?? null\r\n    } catch {\r\n      return null\r\n    }\r\n  }"
+    },
+    {
+      "name": "setShortcutRecording",
+      "line": 40,
+      "implementation": "setShortcutRecording: (recording) => ipcRenderer.send('menu:recording', recording)"
+    },
+    {
+      "name": "setMenuShortcuts",
+      "line": 41,
+      "implementation": "setMenuShortcuts: (bindings) => ipcRenderer.send('menu:shortcuts', bindings)"
+    },
+    {
+      "name": "onMenuCommand",
+      "line": 42,
+      "implementation": "onMenuCommand: (handler) => {\r\n    const listener = (_event, name) => handler(name)\r\n    ipcRenderer.on('menu-cmd', listener)\r\n    ipcRenderer.send('menu:ready')\r\n    return () => ipcRenderer.removeListener('menu-cmd', listener)\r\n  }"
+    },
+    {
+      "name": "getPathForFile",
+      "line": 50,
+      "implementation": "getPathForFile: (file) => {\r\n    try {\r\n      return webUtils.getPathForFile(file)\r\n    } catch {\r\n      return ''\r\n    }\r\n  }"
+    },
+    {
+      "name": "pickAttachments",
+      "line": 60,
+      "implementation": "pickAttachments: (kind) => ipcRenderer.invoke('dialog:pickAttachments', kind)"
+    },
+    {
+      "name": "pickImages",
+      "line": 63,
+      "implementation": "pickImages: () => ipcRenderer.invoke('dialog:pickImages')"
+    },
+    {
+      "name": "pickDirectory",
+      "line": 66,
+      "implementation": "pickDirectory: () => ipcRenderer.invoke('dialog:pickDirectory')"
+    },
+    {
+      "name": "saveClipboardImage",
+      "line": 69,
+      "implementation": "saveClipboardImage: (bytes, ext) => ipcRenderer.invoke('clipboard:saveImage', { bytes, ext })"
+    },
+    {
+      "name": "keepTransientFile",
+      "line": 72,
+      "implementation": "keepTransientFile: (filePath) => ipcRenderer.invoke('attachment:keepTransient', filePath)"
+    },
+    {
+      "name": "readImage",
+      "line": 75,
+      "implementation": "readImage: (filePath) => ipcRenderer.invoke('attachment:readImage', filePath)"
+    },
+    {
+      "name": "openTerminal",
+      "line": 78,
+      "implementation": "openTerminal: () => ipcRenderer.invoke('shell:openTerminal')"
+    },
+    {
+      "name": "openExternal",
+      "line": 81,
+      "implementation": "openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)"
+    },
+    {
+      "name": "revealChange",
+      "line": 85,
+      "implementation": "revealChange: (root, relativePath) =>\r\n    ipcRenderer.invoke('shell:revealChange', { root, relativePath })"
+    },
+    {
+      "name": "revealAppData",
+      "line": 89,
+      "implementation": "revealAppData: () => ipcRenderer.invoke('shell:revealAppData')"
+    },
+    {
+      "name": "detectOpenTargets",
+      "line": 90,
+      "implementation": "detectOpenTargets: () => ipcRenderer.invoke('shell:detectOpenTargets')"
+    },
+    {
+      "name": "openIn",
+      "line": 91,
+      "implementation": "openIn: (request) => ipcRenderer.invoke('shell:openIn', request)"
+    },
+    {
+      "name": "windowState",
+      "line": 94,
+      "implementation": "windowState: () => ipcRenderer.invoke('window:state')"
+    },
+    {
+      "name": "adContext",
+      "line": 99,
+      "implementation": "adContext: () => ipcRenderer.invoke('ads:context')"
+    },
+    {
+      "name": "minimizeWindow",
+      "line": 101,
+      "implementation": "minimizeWindow: () => ipcRenderer.invoke('window:minimize')"
+    },
+    {
+      "name": "toggleMaximizeWindow",
+      "line": 102,
+      "implementation": "toggleMaximizeWindow: () => ipcRenderer.invoke('window:toggleMaximize')"
+    },
+    {
+      "name": "closeWindow",
+      "line": 103,
+      "implementation": "closeWindow: (rendererClosedThread) =>\r\n    ipcRenderer.invoke('window:close', rendererClosedThread === true)"
+    },
+    {
+      "name": "onCloseRequest",
+      "line": 105,
+      "implementation": "onCloseRequest: (handler) => {\r\n    const listener = (_event, request) => handler(request)\r\n    ipcRenderer.on('close:request', listener)\r\n    ipcRenderer.send('close:ready', true)\r\n    return () => {\r\n      ipcRenderer.removeListener('close:request', listener)\r\n      ipcRenderer.send('close:ready', false)\r\n    }\r\n  }"
+    },
+    {
+      "name": "answerCloseRequest",
+      "line": 114,
+      "implementation": "answerCloseRequest: (id, accepted) => ipcRenderer.send('close:answer', id, accepted)"
+    },
+    {
+      "name": "openThreadWindow",
+      "line": 115,
+      "implementation": "openThreadWindow: (threadId, projectPath, focus) =>\r\n    ipcRenderer.invoke('window:openThread', { threadId, projectPath, focus })"
+    },
+    {
+      "name": "openFileInMainWindow",
+      "line": 117,
+      "implementation": "openFileInMainWindow: (request) => ipcRenderer.invoke('window:openFile', request)"
+    },
+    {
+      "name": "onOpenFile",
+      "line": 118,
+      "implementation": "onOpenFile: (handler) => {\r\n    const listener = (_event, request) => handler(request)\r\n    ipcRenderer.on('window:openFile', listener)\r\n    ipcRenderer.send('window:fileNavigationReady', true)\r\n    return () => {\r\n      ipcRenderer.removeListener('window:openFile', listener)\r\n      ipcRenderer.send('window:fileNavigationReady', false)\r\n    }\r\n  }"
+    },
+    {
+      "name": "requestAttention",
+      "line": 128,
+      "implementation": "requestAttention: () => ipcRenderer.send('window:requestAttention')"
+    },
+    {
+      "name": "clearAttention",
+      "line": 129,
+      "implementation": "clearAttention: () => ipcRenderer.send('window:clearAttention')"
+    },
+    {
+      "name": "notifyNeedsYou",
+      "line": 132,
+      "implementation": "notifyNeedsYou: (request) => ipcRenderer.invoke('notify:needsYou', request)"
+    },
+    {
+      "name": "onOpenNeedsYou",
+      "line": 133,
+      "implementation": "onOpenNeedsYou: (handler) => {\r\n    const listener = (_event, target) => handler(target)\r\n    ipcRenderer.on('notify:openNeedsYou', listener)\r\n    ipcRenderer.send('notify:needsYouReady', true)\r\n    return () => {\r\n      ipcRenderer.removeListener('notify:openNeedsYou', listener)\r\n      ipcRenderer.send('notify:needsYouReady', false)\r\n    }\r\n  }"
+    },
+    {
+      "name": "signInCompleted",
+      "line": 145,
+      "implementation": "signInCompleted: () => ipcRenderer.send('window:signInCompleted')"
+    },
+    {
+      "name": "tabContextMenu",
+      "line": 146,
+      "implementation": "tabContextMenu: () => ipcRenderer.invoke('menu:tabContext')"
+    },
+    {
+      "name": "onTextContextMenu",
+      "line": 148,
+      "implementation": "onTextContextMenu: (handler) => {\r\n    const listener = (_event, params) => handler(params)\r\n    ipcRenderer.on('text-context-menu', listener)\r\n    return () => ipcRenderer.removeListener('text-context-menu', listener)\r\n  }"
+    },
+    {
+      "name": "textEdit",
+      "line": 154,
+      "implementation": "textEdit: (command, arg) => ipcRenderer.send('text-edit', command, arg)"
+    },
+    {
+      "name": "downloadThreadFile",
+      "line": 155,
+      "implementation": "downloadThreadFile: (threadId, path) => ipcRenderer.invoke('file:download', { threadId, path })"
+    },
+    {
+      "name": "saveMarkdown",
+      "line": 156,
+      "implementation": "saveMarkdown: (filename, content) => ipcRenderer.invoke('dialog:saveMarkdown', { filename, content })"
+    },
+    {
+      "name": "onWindowStateChange",
+      "line": 157,
+      "implementation": "onWindowStateChange: (handler) => {\r\n    const listener = (_event, state) => handler(state)\r\n    ipcRenderer.on('window-state', listener)\r\n    return () => ipcRenderer.removeListener('window-state', listener)\r\n  }"
+    },
+    {
+      "name": "onUpdateCard",
+      "line": 164,
+      "implementation": "onUpdateCard: (handler) => {\r\n    const listener = (_event, card) => handler(card)\r\n    ipcRenderer.on('update-card', listener)\r\n    return () => ipcRenderer.removeListener('update-card', listener)\r\n  }"
+    },
+    {
+      "name": "pendingUpdate",
+      "line": 171,
+      "implementation": "pendingUpdate: () => ipcRenderer.invoke('update:pending')"
+    },
+    {
+      "name": "appVersion",
+      "line": 172,
+      "implementation": "appVersion: () => ipcRenderer.invoke('update:version')"
+    },
+    {
+      "name": "checkForUpdates",
+      "line": 174,
+      "implementation": "checkForUpdates: () => ipcRenderer.invoke('update:check')"
+    },
+    {
+      "name": "updateAction",
+      "line": 176,
+      "implementation": "updateAction: (action) => ipcRenderer.invoke('update:action', action)"
+    },
+    {
+      "name": "reportBusy",
+      "line": 178,
+      "implementation": "reportBusy: (busy, sessionOpen) => ipcRenderer.send('update:busy', busy, sessionOpen)"
+    },
+    {
+      "name": "reportHistory",
+      "line": 179,
+      "implementation": "reportHistory: (counts) => ipcRenderer.send('renderer:history', counts)"
+    },
+    {
+      "name": "bootInfo",
+      "line": 181,
+      "implementation": "bootInfo: () => ipcRenderer.invoke('renderer:boot-info')"
+    },
+    {
+      "name": "setTheme",
+      "line": 182,
+      "implementation": "setTheme: (theme, titleBarColors) => ipcRenderer.send('theme:set', theme, titleBarColors)"
+    },
+    {
+      "name": "interfaceZoom",
+      "line": 183,
+      "implementation": "interfaceZoom: () => ipcRenderer.invoke('interface-zoom:get')"
+    },
+    {
+      "name": "setInterfaceZoom",
+      "line": 184,
+      "implementation": "setInterfaceZoom: (percent) => ipcRenderer.invoke('interface-zoom:set', percent)"
+    },
+    {
+      "name": "onInterfaceZoom",
+      "line": 185,
+      "implementation": "onInterfaceZoom: (handler) => {\r\n    const listener = (_event, percent) => handler(percent)\r\n    ipcRenderer.on('interface-zoom', listener)\r\n    return () => ipcRenderer.removeListener('interface-zoom', listener)\r\n  }"
+    },
+    {
+      "name": "discordPresenceEnabled",
+      "line": 191,
+      "implementation": "discordPresenceEnabled: () => ipcRenderer.invoke('discord:enabled')"
+    },
+    {
+      "name": "setDiscordPresenceEnabled",
+      "line": 192,
+      "implementation": "setDiscordPresenceEnabled: (enabled) => ipcRenderer.invoke('discord:setEnabled', enabled)"
+    },
+    {
+      "name": "onTheme",
+      "line": 193,
+      "implementation": "onTheme: (handler) => {\r\n    const listener = (_event, theme) => handler(theme)\r\n    ipcRenderer.on('theme', listener)\r\n    return () => ipcRenderer.removeListener('theme', listener)\r\n  }"
+    }
+  ]
+}

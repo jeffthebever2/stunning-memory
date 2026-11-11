@@ -1,0 +1,43 @@
+{
+  "status": "passed",
+  "checks": [
+    {
+      "model": "m-00032eaeec",
+      "generated": true,
+      "checklist": [
+        {
+          "text": "Verify SDK",
+          "state": "done"
+        },
+        {
+          "text": "Finish check",
+          "state": "done"
+        }
+      ],
+      "toolNames": [
+        "write_todos",
+        "write_todos"
+      ]
+    },
+    {
+      "model": "m-096e75164d",
+      "generated": true,
+      "checklist": [
+        {
+          "text": "Verify SDK",
+          "state": "done"
+        },
+        {
+          "text": "Finish check",
+          "state": "done"
+        }
+      ],
+      "toolNames": [
+        "write_todos",
+        "write_todos",
+        "write_todos",
+        "write_todos"
+      ]
+    }
+  ]
+}
